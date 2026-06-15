@@ -40,11 +40,18 @@ export async function apiFetch(path, options = {}) {
 export const authApi = {
   signup: (payload) => apiFetch("/auth/signup", { method: "POST", body: JSON.stringify(payload) }),
   login: (payload) => apiFetch("/auth/login", { method: "POST", body: JSON.stringify(payload) }),
+  me: () => apiFetch("/auth/me"),
 };
 
 export const postsApi = {
   list: (params = {}) => apiFetch(`/posts?${new URLSearchParams(params)}`),
   create: (payload) => apiFetch("/posts", { method: "POST", body: JSON.stringify(payload) }),
+  get: (postId) => apiFetch(`/posts/${postId}`),
+  update: (postId, payload) => apiFetch(`/posts/${postId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  remove: (postId) => apiFetch(`/posts/${postId}`, { method: "DELETE" }),
+  comments: (postId) => apiFetch(`/posts/${postId}/comments`),
+  createComment: (postId, payload) => apiFetch(`/posts/${postId}/comments`, { method: "POST", body: JSON.stringify(payload) }),
+  deleteComment: (postId, commentId) => apiFetch(`/posts/${postId}/comments/${commentId}`, { method: "DELETE" }),
 };
 
 export const skillsApi = {

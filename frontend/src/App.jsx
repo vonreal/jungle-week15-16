@@ -26,7 +26,7 @@ import {
 import Chip from "./components/Chip.jsx";
 import LevelPip from "./components/LevelPip.jsx";
 import RadarChart from "./components/RadarChart.jsx";
-import { authApi, skillsApi } from "./api/client.js";
+import { authApi, postsApi, skillsApi } from "./api/client.js";
 
 const NAV_ICONS = {
   dashboard: Home,
@@ -106,6 +106,7 @@ const EMPTY_DATA = {
     actions: [],
   },
   posts: [],
+  postsPage: { page: 1, size: 12, total: 0 },
   comments: [],
 };
 
@@ -137,12 +138,17 @@ function buildRadar(userSkills = []) {
   }));
 }
 
-function normalizeAppState(state, skillCatalog = [], userSkills = []) {
+function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage = null) {
   const base = {
     ...EMPTY_DATA,
     source: state?.source ?? "empty",
+    skillCatalog,
     skills: buildSkillsByCategory(skillCatalog, userSkills),
     radar: buildRadar(userSkills),
+    posts: postsPage?.items ?? [],
+    postsPage: postsPage
+      ? { page: postsPage.page, size: postsPage.size, total: postsPage.total }
+      : EMPTY_DATA.postsPage,
   };
   if (!state?.seeded) return base;
 
@@ -162,17 +168,44 @@ function normalizeAppState(state, skillCatalog = [], userSkills = []) {
       realistic: state.portfolio?.realistic ?? [],
       actions: state.portfolio?.actions ?? [],
     },
-    posts: state.posts ?? [],
+    posts: state.posts ?? base.posts,
+    postsPage: base.postsPage,
     comments: state.comments ?? [],
   };
 }
 
 async function fetchAppState(currentUser = null) {
-  const [skillCatalog, userSkills] = await Promise.all([
+  const [skillCatalog, userSkills, postsPage] = await Promise.all([
     skillsApi.list(),
     currentUser ? skillsApi.mySkills() : Promise.resolve([]),
+    postsApi.list({ page: 1, size: 50 }),
   ]);
-  return normalizeAppState(null, skillCatalog, userSkills);
+  return normalizeAppState(null, skillCatalog, userSkills, postsPage);
+}
+
+function formatDateTime(value) {
+  if (!value) return "방금 전";
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function postTagNames(post) {
+  return (post?.tags ?? []).map((tag) => (typeof tag === "string" ? tag : tag.name)).filter(Boolean);
+}
+
+function postRole(post) {
+  const tags = postTagNames(post);
+  return tags.find((tag) => ROLE_COLORS[tag]) ?? "스터디";
+}
+
+function skillOptionsFromData(data) {
+  return data.skillCatalog?.length
+    ? data.skillCatalog.map((skill) => ({ id: skill.id, name: skill.name }))
+    : SKILL_OPTS.map((name) => ({ id: null, name }));
 }
 
 function Icon({ icon: IconComponent, size = 16 }) {
@@ -1080,17 +1113,33 @@ function SignupScreen({ go, onAuthenticated }) {
   );
 }
 
-function PostListScreen({ go, data }) {
+function PostListScreen({ go, data, onSelectPost }) {
   const [filter, setFilter] = useState("전체");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const filters = ["전체", "백엔드", "프론트엔드", "AI/ML", "DevOps"];
   const postRows = data.posts;
+  const pageSize = 9;
   const filtered = postRows.filter(
-    (post) =>
-      (filter === "전체" || post.role === filter) &&
-      (!search || post.title.includes(search) || post.stacks.some((stack) => stack.includes(search))),
+    (post) => {
+      const role = postRole(post);
+      const tags = postTagNames(post);
+      const keyword = search.trim().toLowerCase();
+      return (
+        (filter === "전체" || role === filter || tags.includes(filter)) &&
+        (!keyword ||
+          post.title.toLowerCase().includes(keyword) ||
+          post.content.toLowerCase().includes(keyword) ||
+          tags.some((tag) => tag.toLowerCase().includes(keyword)))
+      );
+    },
   );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const visiblePosts = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter, search]);
 
   return (
     <div className="screen">
@@ -1117,34 +1166,39 @@ function PostListScreen({ go, data }) {
         ))}
       </div>
       <div className="post-grid">
-        {filtered.length ? (
-          filtered.map((post) => (
-            <button key={post.id} className="post-card" onClick={() => go("post-detail")} type="button">
-              <div>
-                <div className="tag-row">
-                  <span className="role-badge" style={{ background: `${ROLE_COLORS[post.role] ?? "#3B6FEF"}18`, color: ROLE_COLORS[post.role] ?? "#3B6FEF", borderColor: `${ROLE_COLORS[post.role] ?? "#3B6FEF"}30` }}>
-                    {post.role}
-                  </span>
-                  {post.stacks.slice(0, 2).map((stack) => (
-                    <span key={stack} className="stk-tag stk-blue">{stack}</span>
-                  ))}
+        {visiblePosts.length ? (
+          visiblePosts.map((post) => {
+            const role = postRole(post);
+            const tags = postTagNames(post);
+            const roleColor = ROLE_COLORS[role] ?? "#3B6FEF";
+            return (
+              <button key={post.id} className="post-card" onClick={() => onSelectPost(post.id)} type="button">
+                <div>
+                  <div className="tag-row">
+                    <span className="role-badge" style={{ background: `${roleColor}18`, color: roleColor, borderColor: `${roleColor}30` }}>
+                      {role}
+                    </span>
+                    {tags.filter((tag) => tag !== role).slice(0, 2).map((stack) => (
+                      <span key={stack} className="stk-tag stk-blue">{stack}</span>
+                    ))}
+                  </div>
+                  <div className="post-title-txt">{post.title}</div>
                 </div>
-                <div className="post-title-txt">{post.title}</div>
-              </div>
-              <div className="cond-badge">모집 조건: {post.cond}</div>
-              <div className="post-meta">
-                <div className="author-row">
-                  <div className="sm-av">{post.av}</div>
-                  <span>{post.author}</span>
-                  <span className="muted-xs">· {post.date}</span>
+                <div className="cond-badge">{post.is_public ? "공개 게시글" : "비공개 게시글"}</div>
+                <div className="post-meta">
+                  <div className="author-row">
+                    <div className="sm-av">CB</div>
+                    <span>CareerBuddy 사용자</span>
+                    <span className="muted-xs">· {formatDateTime(post.created_at)}</span>
+                  </div>
+                  <div className="metric-row">
+                    <span><Eye size={13} /> {post.view_count}</span>
+                    <span><MessageCircle size={13} /> 댓글</span>
+                  </div>
                 </div>
-                <div className="metric-row">
-                  <span><Eye size={13} /> {post.views}</span>
-                  <span><MessageCircle size={13} /> {post.comments}</span>
-                </div>
-              </div>
-            </button>
-          ))
+              </button>
+            );
+          })
         ) : (
           <div className="post-grid-empty">
             <EmptyState title="게시글이 없습니다" description="실제 게시글이 생성되면 여기에 표시됩니다. 현재 데모 게시글은 제거됐습니다." />
@@ -1152,24 +1206,61 @@ function PostListScreen({ go, data }) {
         )}
       </div>
       <div className="pg">
-        {[1, 2, 3, 4, 5].map((n) => (
+        {Array.from({ length: totalPages }, (_, index) => index + 1).map((n) => (
           <button key={n} className={`pg-btn ${n === page ? "on" : ""}`} onClick={() => setPage(n)} type="button">
             {n}
           </button>
         ))}
-        <button className="pg-btn" onClick={() => setPage((n) => Math.min(n + 1, 5))} type="button">›</button>
+        <button className="pg-btn" onClick={() => setPage((n) => Math.min(n + 1, totalPages))} type="button">›</button>
       </div>
     </div>
   );
 }
 
-function PostDetailScreen({ go, data, requireAuth, notifyUnavailable }) {
+function PostDetailScreen({ go, data, selectedPostId, currentUser, requireAuth, notifyUnavailable }) {
   const [comment, setComment] = useState("");
-  const post = data.posts[0] ?? null;
-  const comments = data.comments;
-  const unavailableAfterAuth = (message) => {
-    if (requireAuth("커뮤니티 액션은 로그인 후 사용할 수 있습니다.")) {
-      notifyUnavailable(message);
+  const [post, setPost] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [status, setStatus] = useState("loading");
+  const [error, setError] = useState("");
+  const loadPost = async () => {
+    if (!selectedPostId) {
+      setPost(null);
+      setComments([]);
+      setStatus("idle");
+      return;
+    }
+    setStatus("loading");
+    setError("");
+    try {
+      const [postDetail, postComments] = await Promise.all([
+        postsApi.get(selectedPostId),
+        postsApi.comments(selectedPostId),
+      ]);
+      setPost(postDetail);
+      setComments(postComments);
+      setStatus("idle");
+    } catch (event) {
+      setPost(null);
+      setComments([]);
+      setError(event.message || "게시글을 불러오지 못했습니다.");
+      setStatus("error");
+    }
+  };
+  useEffect(() => {
+    loadPost();
+  }, [selectedPostId]);
+  const submitComment = async () => {
+    if (!requireAuth("댓글 등록은 로그인 후 사용할 수 있습니다.")) return;
+    const content = comment.trim();
+    if (!content || !post) return;
+    try {
+      await postsApi.createComment(post.id, { content });
+      setComment("");
+      const nextComments = await postsApi.comments(post.id);
+      setComments(nextComments);
+    } catch (event) {
+      notifyUnavailable(event.message || "댓글 등록에 실패했습니다.");
     }
   };
   if (!post) {
@@ -1180,8 +1271,8 @@ function PostDetailScreen({ go, data, requireAuth, notifyUnavailable }) {
         </div>
         <div className="card">
           <EmptyState
-            title="열람할 게시글이 없습니다"
-            description="현재 DB에 공개 게시글이 없습니다. 데모 게시글은 제거됐습니다."
+            title={status === "loading" ? "게시글을 불러오는 중입니다" : "열람할 게시글이 없습니다"}
+            description={error || "목록에서 게시글을 선택해주세요."}
             action={
               <button className="btn btn-secondary btn-sm" onClick={() => go("posts")} type="button">
                 목록으로 돌아가기
@@ -1192,6 +1283,9 @@ function PostDetailScreen({ go, data, requireAuth, notifyUnavailable }) {
       </div>
     );
   }
+  const role = postRole(post);
+  const tags = postTagNames(post);
+  const roleColor = ROLE_COLORS[role] ?? "#3B6FEF";
   return (
     <div className="screen">
       <div className="breadcrumb">
@@ -1203,48 +1297,45 @@ function PostDetailScreen({ go, data, requireAuth, notifyUnavailable }) {
         <div className="screen-stack">
           <div className="card">
             <div className="tag-row">
-              <span className="role-badge" style={{ background: `${ROLE_COLORS[post.role]}18`, color: ROLE_COLORS[post.role], borderColor: `${ROLE_COLORS[post.role]}30` }}>
-                {post.role}
+              <span className="role-badge" style={{ background: `${roleColor}18`, color: roleColor, borderColor: `${roleColor}30` }}>
+                {role}
               </span>
-              {post.stacks.map((stack) => (
+              {tags.filter((tag) => tag !== role).map((stack) => (
                 <span key={stack} className="stk-tag stk-blue">{stack}</span>
               ))}
             </div>
             <h1 className="post-detail-title">{post.title}</h1>
             <div className="post-detail-meta">
-              <div className="author-row"><div className="sm-av">{post.av}</div><span>{post.author}</span></div>
-              <span>·</span><span>{post.date}</span><span>·</span><span>조회 {post.views}</span><span>·</span><span>댓글 {post.comments}</span>
+              <div className="author-row"><div className="sm-av">CB</div><span>CareerBuddy 사용자</span></div>
+              <span>·</span><span>{formatDateTime(post.created_at)}</span><span>·</span><span>조회 {post.view_count}</span><span>·</span><span>댓글 {comments.length}</span>
             </div>
           </div>
           <div className="card post-body">
-            <p>{post.content}</p>
-            <p>현재 Spring Boot, JPA, MySQL을 주력으로 사용하고 있으며, Redis와 Kafka를 학습 중입니다. JD 분석 결과 78% 매칭이 나왔고 부족한 부분을 함께 채워갈 분들을 찾고 있어요.</p>
-            <p><strong>일정</strong> 매주 토요일 오전 10시 (온라인, Discord)</p>
-            <p><strong>방식</strong> 개인 학습 공유 + JD 분석 리뷰 + 모의 기술 면접</p>
-            <p><strong>모집 인원</strong> 3명 중 1명 추가 모집</p>
+            {post.content.split("\n").map((line, index) => (
+              <p key={`${line}-${index}`}>{line || "\u00A0"}</p>
+            ))}
           </div>
           <div className="card">
             <div className="card-title card-title-spaced">댓글 {comments.length}</div>
-            {comments.map((item) => (
+            {comments.length ? comments.map((item) => (
               <div key={item.id} className="comment-row">
-                <div className="sm-av">{item.av}</div>
+                <div className="sm-av">{currentUser?.id === item.user_id ? currentUser.nickname.slice(0, 1) : "CB"}</div>
                 <div className="grow">
-                  <div className="comment-head"><strong>{item.author}</strong><span>{item.time}</span></div>
-                  <p>{item.text}</p>
-                  <button onClick={() => unavailableAfterAuth("댓글 좋아요 API는 기본 게시판 단계에서 연결할 예정입니다.")} type="button">좋아요 {item.likes}</button>
+                  <div className="comment-head"><strong>{currentUser?.id === item.user_id ? currentUser.nickname : "CareerBuddy 사용자"}</strong><span>{formatDateTime(item.created_at)}</span></div>
+                  <p>{item.content}</p>
                 </div>
               </div>
-            ))}
+            )) : <EmptyState title="댓글이 없습니다" description="첫 댓글을 남겨보세요." />}
             <div className="comment-form">
               <input className="input" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="댓글을 입력하세요..." />
-              <button className="btn btn-primary btn-sm" onClick={() => unavailableAfterAuth("댓글 등록 API는 기본 게시판 단계에서 연결할 예정입니다.")} type="button"><Icon icon={Send} size={14} />등록</button>
+              <button className="btn btn-primary btn-sm" onClick={submitComment} disabled={!comment.trim()} type="button"><Icon icon={Send} size={14} />등록</button>
             </div>
           </div>
         </div>
         <aside className="screen-stack">
           <div className="card">
             <div className="card-title card-title-spaced">작성자</div>
-            <div className="profile-row"><div className="avatar">{post.av}</div><div><strong>{post.author}</strong><span>레벨 3 · 행성 3개 탐사</span></div></div>
+            <div className="profile-row"><div className="avatar">CB</div><div><strong>CareerBuddy 사용자</strong><span>커뮤니티 게시글 작성자</span></div></div>
             <div className="card-title mini-title">스탯 요약</div>
             {data.radar.slice(0, 4).map((item) => (
               <div key={item.label} className="mini-stat">
@@ -1259,14 +1350,10 @@ function PostDetailScreen({ go, data, requireAuth, notifyUnavailable }) {
           </div>
           <div className="card">
             <div className="card-title card-title-spaced">모집 조건</div>
-            {[
-              ["Java", "3 이상"],
-              ["Spring Boot", "2 이상"],
-              ["MySQL", "2 이상"],
-            ].map(([skill, lv]) => (
-              <div key={skill} className="condition-row"><span>{skill}</span><strong>{lv}</strong></div>
-            ))}
-            <button className="btn btn-primary full-btn" onClick={() => unavailableAfterAuth("스터디 지원 API는 기본 게시판 단계에서 연결할 예정입니다.")} type="button">지원하기</button>
+            {tags.length ? tags.map((tag) => (
+              <div key={tag} className="condition-row"><span>{tag}</span><strong>태그</strong></div>
+            )) : <EmptyState title="조건 없음" description="작성자가 별도 조건을 설정하지 않았습니다." />}
+            <button className="btn btn-primary full-btn" onClick={() => notifyUnavailable("지원하기 기능은 다음 단계에서 연결할 예정입니다.")} type="button">지원하기</button>
           </div>
           <div className="card">
             <div className="card-title card-title-spaced">연동된 JD 분석</div>
@@ -1282,11 +1369,17 @@ function PostDetailScreen({ go, data, requireAuth, notifyUnavailable }) {
   );
 }
 
-function WritePostScreen({ go, notifyUnavailable }) {
-  const [tags, setTags] = useState(["Spring Boot", "백엔드"]);
+function WritePostScreen({ go, data, onCreated, notifyUnavailable }) {
+  const skillOptions = skillOptionsFromData(data);
+  const defaultSkill = skillOptions[0]?.name ?? "Java";
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [tags, setTags] = useState(["백엔드"]);
   const [tagInput, setTagInput] = useState("");
-  const [conds, setConds] = useState([{ skill: "Java", lv: 3 }]);
+  const [conds, setConds] = useState([{ skill: defaultSkill, lv: 3 }]);
   const [isPublic, setIsPublic] = useState(true);
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState("");
   const addTag = () => {
     const next = tagInput.trim();
     if (next && !tags.includes(next)) {
@@ -1295,6 +1388,35 @@ function WritePostScreen({ go, notifyUnavailable }) {
     }
   };
   const updateCond = (index, key, value) => setConds((prev) => prev.map((item, i) => (i === index ? { ...item, [key]: value } : item)));
+  const publish = async () => {
+    const cleanTitle = title.trim();
+    const cleanContent = content.trim();
+    if (!cleanTitle || !cleanContent) {
+      setError("제목과 내용을 입력해주세요.");
+      return;
+    }
+    setStatus("loading");
+    setError("");
+    const requirements = conds
+      .map((cond) => {
+        const skill = skillOptions.find((item) => item.name === cond.skill);
+        return skill?.id ? { skill_id: skill.id, min_level: cond.lv } : null;
+      })
+      .filter(Boolean);
+    try {
+      const post = await postsApi.create({
+        title: cleanTitle,
+        content: cleanContent,
+        is_public: isPublic,
+        tags,
+        stat_requirements: requirements,
+      });
+      onCreated(post.id);
+    } catch (event) {
+      setError(event.message || "게시글 등록에 실패했습니다.");
+      setStatus("idle");
+    }
+  };
 
   return (
     <div className="screen">
@@ -1302,14 +1424,15 @@ function WritePostScreen({ go, notifyUnavailable }) {
         <div><div className="page-eyebrow">스터디 모집</div><h1 className="page-title">새 게시글 작성</h1></div>
         <div className="header-btns">
           <button className="btn btn-secondary btn-sm" onClick={() => go("posts")} type="button"><Icon icon={X} size={14} />취소</button>
-          <button className="btn btn-secondary btn-sm" onClick={() => notifyUnavailable("게시글 임시저장 API는 기본 게시판 단계에서 연결할 예정입니다.")} type="button"><Icon icon={Save} size={14} />임시저장</button>
-          <button className="btn btn-primary btn-sm" onClick={() => notifyUnavailable("게시글 등록 API는 기본 게시판 단계에서 연결할 예정입니다.")} type="button"><Icon icon={Send} size={14} />게시하기</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => notifyUnavailable("임시저장은 다음 단계에서 연결할 예정입니다.")} type="button"><Icon icon={Save} size={14} />임시저장</button>
+          <button className="btn btn-primary btn-sm" onClick={publish} disabled={status === "loading"} type="button"><Icon icon={Send} size={14} />{status === "loading" ? "게시 중" : "게시하기"}</button>
         </div>
       </div>
       <div className="screen-stack">
         <div className="card form-stack">
-          <div><label className="field-lbl" htmlFor="post-title">제목</label><input id="post-title" className="input" placeholder="스터디 모집 제목을 입력하세요" /></div>
-          <div><label className="field-lbl" htmlFor="post-content">내용</label><textarea id="post-content" className="input" rows={8} placeholder="스터디 소개, 일정, 진행 방식 등을 자유롭게 작성해주세요" /></div>
+          <div><label className="field-lbl" htmlFor="post-title">제목</label><input id="post-title" className="input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="스터디 모집 제목을 입력하세요" /></div>
+          <div><label className="field-lbl" htmlFor="post-content">내용</label><textarea id="post-content" className="input" rows={8} value={content} onChange={(event) => setContent(event.target.value)} placeholder="스터디 소개, 일정, 진행 방식 등을 자유롭게 작성해주세요" /></div>
+          {error && <div className="auth-error">{error}</div>}
         </div>
         <div className="card">
           <div className="card-title">JD 분석 결과 연동</div>
@@ -1341,7 +1464,7 @@ function WritePostScreen({ go, notifyUnavailable }) {
             {conds.map((cond, i) => (
               <div key={`${cond.skill}-${i}`} className="cond-row-w">
                 <select className="sel-fld" value={cond.skill} onChange={(e) => updateCond(i, "skill", e.target.value)}>
-                  {SKILL_OPTS.map((skill) => <option key={skill}>{skill}</option>)}
+                  {skillOptions.map((skill) => <option key={skill.name}>{skill.name}</option>)}
                 </select>
                 <span className="muted-sm">레벨</span>
                 <div className="level-group compact">
@@ -1360,7 +1483,7 @@ function WritePostScreen({ go, notifyUnavailable }) {
                 <button className="icon-plain push-right" onClick={() => setConds(conds.filter((_, idx) => idx !== i))} type="button"><X size={18} /></button>
               </div>
             ))}
-            <button className="btn btn-secondary btn-sm fit" onClick={() => setConds([...conds, { skill: "Spring Boot", lv: 2 }])} type="button"><Icon icon={Plus} size={14} />조건 추가</button>
+            <button className="btn btn-secondary btn-sm fit" onClick={() => setConds([...conds, { skill: skillOptions[1]?.name ?? defaultSkill, lv: 2 }])} type="button"><Icon icon={Plus} size={14} />조건 추가</button>
           </div>
         </div>
         <div className="card publish-row">
@@ -1495,6 +1618,7 @@ export default function App() {
   const [screen, setScreen] = useState("dashboard");
   const [appData, setAppData] = useState(EMPTY_DATA);
   const [currentUser, setCurrentUser] = useState(null);
+  const [selectedPostId, setSelectedPostId] = useState(null);
   const [apiStatus, setApiStatus] = useState({ label: "API 연결 중", tone: "loading" });
   const [notice, setNotice] = useState(null);
   const showNotice = (message, kind = "info") => {
@@ -1531,8 +1655,18 @@ export default function App() {
   const logout = () => {
     localStorage.removeItem("careerbuddy.token");
     setCurrentUser(null);
+    setSelectedPostId(null);
     setNotice(null);
     setScreen("dashboard");
+  };
+  const openPost = (postId) => {
+    setSelectedPostId(postId);
+    setScreen("post-detail");
+  };
+  const handlePostCreated = async (postId) => {
+    setSelectedPostId(postId);
+    await reloadAppData(currentUser, { label: "게시글 저장됨", tone: "ok" });
+    setScreen("post-detail");
   };
 
   useEffect(() => {
@@ -1542,14 +1676,23 @@ export default function App() {
   }, [notice]);
 
   useEffect(() => {
-    localStorage.removeItem("careerbuddy.token");
     let active = true;
     async function loadDemoData() {
       try {
-        const data = await fetchAppState();
+        const savedToken = localStorage.getItem("careerbuddy.token");
+        let user = null;
+        if (savedToken) {
+          try {
+            user = await authApi.me();
+          } catch {
+            localStorage.removeItem("careerbuddy.token");
+          }
+        }
+        const data = await fetchAppState(user);
         if (!active) return;
+        setCurrentUser(user);
         setAppData(data);
-        setApiStatus({ label: "DB 연결됨 · 데이터 없음", tone: "ok" });
+        setApiStatus({ label: user ? "내 계정 데이터" : "DB 연결됨 · 데이터 없음", tone: "ok" });
       } catch (error) {
         if (!active) return;
         setAppData(EMPTY_DATA);
@@ -1579,9 +1722,9 @@ export default function App() {
     jdinput: <JDInputScreen go={go} requireAuth={requireAuth} notifyUnavailable={notifyUnavailable} />,
     analysis: <AnalysisScreen go={go} data={appData} />,
     portfolio: <PortfolioScreen data={appData} />,
-    posts: <PostListScreen go={go} data={appData} />,
-    "post-detail": <PostDetailScreen go={go} data={appData} requireAuth={requireAuth} notifyUnavailable={notifyUnavailable} />,
-    "post-write": <WritePostScreen go={go} notifyUnavailable={notifyUnavailable} />,
+    posts: <PostListScreen go={go} data={appData} onSelectPost={openPost} />,
+    "post-detail": <PostDetailScreen go={go} data={appData} selectedPostId={selectedPostId} currentUser={currentUser} requireAuth={requireAuth} notifyUnavailable={notifyUnavailable} />,
+    "post-write": <WritePostScreen go={go} data={appData} onCreated={handlePostCreated} notifyUnavailable={notifyUnavailable} />,
   };
 
   return (
