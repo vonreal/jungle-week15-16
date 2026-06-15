@@ -6,8 +6,8 @@ from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import CurrentUser, SessionDep
-from app.models import Comment, Post, PostStatRequirement, Skill, Tag
+from app.api.deps import CurrentUser, OptionalCurrentUser, SessionDep
+from app.models import Comment, Post, PostStatRequirement, PostView, Skill, Tag
 from app.schemas.posts import CommentCreate, CommentRead, PostCreate, PostPage, PostRead, PostUpdate
 
 router = APIRouter()
@@ -55,10 +55,23 @@ async def create_post(payload: PostCreate, session: SessionDep, current_user: Cu
 
 
 @router.get("/{post_id}", response_model=PostRead)
-async def get_post(post_id: uuid.UUID, session: SessionDep) -> Post:
+async def get_post(
+    post_id: uuid.UUID,
+    session: SessionDep,
+    current_user: OptionalCurrentUser,
+) -> Post:
     post = await _get_post_or_404(session, post_id)
-    post.view_count += 1
-    await session.commit()
+    if current_user is not None:
+        existing_view = await session.scalar(
+            select(PostView).where(
+                PostView.post_id == post_id,
+                PostView.user_id == current_user.id,
+            )
+        )
+        if existing_view is None:
+            session.add(PostView(post_id=post_id, user_id=current_user.id))
+            post.view_count += 1
+            await session.commit()
     return await _get_post_or_404(session, post_id)
 
 

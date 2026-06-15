@@ -216,6 +216,7 @@ class Post(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     user: Mapped[User] = relationship(back_populates="posts")
     comments: Mapped[list[Comment]] = relationship(back_populates="post", cascade="all, delete-orphan")
+    views: Mapped[list[PostView]] = relationship(back_populates="post", cascade="all, delete-orphan")
     tags: Mapped[list[Tag]] = relationship(secondary="post_tags", back_populates="posts")
     stat_requirements: Mapped[list[PostStatRequirement]] = relationship(
         back_populates="post",
@@ -246,6 +247,23 @@ class Comment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
 
     post: Mapped[Post] = relationship(back_populates="comments")
+    user: Mapped[User] = relationship()
+
+
+class PostView(Base):
+    __tablename__ = "post_views"
+    __table_args__ = (UniqueConstraint("post_id", "user_id", name="uq_post_views_post_user"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    post_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("posts.id", ondelete="CASCADE"))
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    post: Mapped[Post] = relationship(back_populates="views")
     user: Mapped[User] = relationship()
 
 
@@ -283,4 +301,3 @@ class DocumentEmbedding(UUIDPrimaryKeyMixin, Base):
         server_default=func.now(),
         nullable=False,
     )
-

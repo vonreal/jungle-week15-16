@@ -9,6 +9,7 @@ from app.models.domain import (
     Post,
     PostStatRequirement,
     PostTag,
+    PostView,
     Skill,
     Tag,
     User,
@@ -28,6 +29,7 @@ __all__ = [
     "Post",
     "PostStatRequirement",
     "PostTag",
+    "PostView",
     "Skill",
     "Tag",
     "User",
@@ -35,4 +37,3 @@ __all__ = [
     "UserExperience",
     "UserSkill",
 ]
-

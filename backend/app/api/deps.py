@@ -14,6 +14,10 @@ from app.db.session import get_session
 from app.models import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.api_v1_prefix}/auth/login")
+optional_oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.api_v1_prefix}/auth/login",
+    auto_error=False,
+)
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
@@ -37,6 +41,28 @@ async def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+async def get_optional_current_user(
+    token: Annotated[str | None, Depends(optional_oauth2_scheme)],
+    session: SessionDep,
+) -> User | None:
+    if not token:
+        return None
+
+    subject = decode_access_token(token)
+    if not subject:
+        return None
+
+    try:
+        user_id = uuid.UUID(subject)
+    except ValueError:
+        return None
+
+    return await session.get(User, user_id)
+
+
+OptionalCurrentUser = Annotated[User | None, Depends(get_optional_current_user)]
 
 
 async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
