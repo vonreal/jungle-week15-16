@@ -1028,7 +1028,9 @@ function SignupScreen({ go, onAuthenticated }) {
           {fieldError("nickname") && <div id="signup-nick-error" className="field-error">{fieldError("nickname")}</div>}
         </div>
         <div className="form-group">
-          <label className="field-lbl">목표 직무</label>
+          <label className="field-lbl">
+            목표 직무 <span className="field-optional">(선택)</span>
+          </label>
           <div className="rc-wrap">
             {["백엔드", "프론트엔드", "AI/ML", "모바일", "DevOps", "풀스택"].map((role) => (
               <button key={role} className={`rc ${roles.includes(role) ? "on" : ""}`} onClick={() => toggleRole(role)} type="button">
@@ -1038,7 +1040,9 @@ function SignupScreen({ go, onAuthenticated }) {
           </div>
         </div>
         <div className="form-group">
-          <label className="field-lbl" htmlFor="signup-company">목표 회사</label>
+          <label className="field-lbl" htmlFor="signup-company">
+            목표 회사 <span className="field-optional">(선택)</span>
+          </label>
           <input id="signup-company" className="input" value={targetCompany} onChange={updateField(setTargetCompany)} placeholder="카카오, 네이버, 토스 등" />
         </div>
         {error && <div className="auth-error">{error}</div>}
