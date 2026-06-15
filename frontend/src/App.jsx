@@ -902,6 +902,24 @@ function LoginScreen({ go, onAuthenticated }) {
   );
 }
 
+function validateSignupEmail(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return "이메일을 입력해주세요.";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return "올바른 이메일 형식으로 입력해주세요.";
+  return "";
+}
+
+function validateSignupPassword(value) {
+  if (!value) return "비밀번호를 입력해주세요.";
+  if (value.length < 8) return "비밀번호는 8자 이상이어야 합니다.";
+  return "";
+}
+
+function validateSignupNickname(value) {
+  if (!value.trim()) return "닉네임을 입력해주세요.";
+  return "";
+}
+
 function SignupScreen({ go, onAuthenticated }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -910,17 +928,42 @@ function SignupScreen({ go, onAuthenticated }) {
   const [roles, setRoles] = useState([]);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
+  const [touched, setTouched] = useState({});
+  const signupErrors = {
+    email: validateSignupEmail(email),
+    password: validateSignupPassword(password),
+    nickname: validateSignupNickname(nickname),
+  };
+  const isSignupValid = !signupErrors.email && !signupErrors.password && !signupErrors.nickname;
+  const markTouched = (field) => setTouched((prev) => ({ ...prev, [field]: true }));
+  const handleSignupPointerDown = (event) => {
+    const currentField = document.activeElement?.dataset?.signupField;
+    const nextField = event.target.closest?.("[data-signup-field]")?.dataset.signupField;
+    if (currentField && nextField !== currentField) {
+      markTouched(currentField);
+    }
+  };
+  const fieldError = (field) => (touched[field] ? signupErrors[field] : "");
+  const updateField = (setter) => (event) => {
+    setter(event.target.value);
+    if (error) setError("");
+  };
   const toggleRole = (role) => setRoles((prev) => (prev.includes(role) ? prev.filter((item) => item !== role) : [...prev, role]));
   const signup = async () => {
+    setTouched({ email: true, password: true, nickname: true });
+    if (!isSignupValid) {
+      setError("");
+      return;
+    }
     setStatus("loading");
     setError("");
     try {
       const token = await authApi.signup({
-        email,
+        email: email.trim(),
         password,
-        nickname,
+        nickname: nickname.trim(),
         target_job: roles[0] ?? null,
-        target_company: targetCompany || null,
+        target_company: targetCompany.trim() || null,
         is_public: true,
       });
       onAuthenticated(token);
@@ -933,21 +976,56 @@ function SignupScreen({ go, onAuthenticated }) {
 
   return (
     <div className="auth-shell">
-      <div className="auth-card auth-wide">
+      <div className="auth-card auth-wide" onPointerDownCapture={handleSignupPointerDown}>
         <Brand center />
         <div className="auth-title">커리어 탐험 시작하기</div>
         <div className="auth-sub">무료로 가입하고 AI 커리어 코치를 만나보세요</div>
-        <div className="form-group">
+        <div className={`form-group ${fieldError("email") ? "has-error" : ""}`}>
           <label className="field-lbl" htmlFor="signup-email">이메일</label>
-          <input id="signup-email" className="input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" />
+          <input
+            id="signup-email"
+            className={`input ${fieldError("email") ? "input-error" : ""}`}
+            type="email"
+            data-signup-field="email"
+            value={email}
+            onChange={updateField(setEmail)}
+            onBlur={() => markTouched("email")}
+            placeholder="name@example.com"
+            aria-invalid={Boolean(fieldError("email"))}
+            aria-describedby={fieldError("email") ? "signup-email-error" : undefined}
+          />
+          {fieldError("email") && <div id="signup-email-error" className="field-error">{fieldError("email")}</div>}
         </div>
-        <div className="form-group">
+        <div className={`form-group ${fieldError("password") ? "has-error" : ""}`}>
           <label className="field-lbl" htmlFor="signup-pw">비밀번호</label>
-          <input id="signup-pw" className="input" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="8자 이상" />
+          <input
+            id="signup-pw"
+            className={`input ${fieldError("password") ? "input-error" : ""}`}
+            type="password"
+            data-signup-field="password"
+            value={password}
+            onChange={updateField(setPassword)}
+            onBlur={() => markTouched("password")}
+            placeholder="8자 이상"
+            aria-invalid={Boolean(fieldError("password"))}
+            aria-describedby={fieldError("password") ? "signup-pw-error" : undefined}
+          />
+          {fieldError("password") && <div id="signup-pw-error" className="field-error">{fieldError("password")}</div>}
         </div>
-        <div className="form-group">
+        <div className={`form-group ${fieldError("nickname") ? "has-error" : ""}`}>
           <label className="field-lbl" htmlFor="signup-nick">닉네임</label>
-          <input id="signup-nick" className="input" value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="탐험가 이름" />
+          <input
+            id="signup-nick"
+            className={`input ${fieldError("nickname") ? "input-error" : ""}`}
+            data-signup-field="nickname"
+            value={nickname}
+            onChange={updateField(setNickname)}
+            onBlur={() => markTouched("nickname")}
+            placeholder="탐험가 이름"
+            aria-invalid={Boolean(fieldError("nickname"))}
+            aria-describedby={fieldError("nickname") ? "signup-nick-error" : undefined}
+          />
+          {fieldError("nickname") && <div id="signup-nick-error" className="field-error">{fieldError("nickname")}</div>}
         </div>
         <div className="form-group">
           <label className="field-lbl">목표 직무</label>
@@ -961,10 +1039,10 @@ function SignupScreen({ go, onAuthenticated }) {
         </div>
         <div className="form-group">
           <label className="field-lbl" htmlFor="signup-company">목표 회사</label>
-          <input id="signup-company" className="input" value={targetCompany} onChange={(event) => setTargetCompany(event.target.value)} placeholder="카카오, 네이버, 토스 등" />
+          <input id="signup-company" className="input" value={targetCompany} onChange={updateField(setTargetCompany)} placeholder="카카오, 네이버, 토스 등" />
         </div>
         {error && <div className="auth-error">{error}</div>}
-        <button className="btn btn-primary full-btn" onClick={signup} disabled={status === "loading" || !email || password.length < 8 || !nickname} type="button">
+        <button className="btn btn-primary full-btn" onClick={signup} disabled={status === "loading"} type="button">
           <Icon icon={UserPlus} />
           {status === "loading" ? "가입 중" : "가입하기"}
         </button>

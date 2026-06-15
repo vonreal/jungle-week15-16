@@ -142,6 +142,8 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .field-lbl { font-size: 12.5px; font-weight: 600; color: var(--text2); display: block; margin-bottom: 7px; }
 .input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--text); outline: none; transition: border-color .15s; resize: none; }
 .input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59,111,239,.09); }
+.input.input-error { border-color: #FCA5A5; background: #FFFBFB; }
+.input.input-error:focus { border-color: var(--red); box-shadow: 0 0 0 3px rgba(220,38,38,.08); }
 .input::placeholder { color: var(--text4); }
 .narrow { max-width: 640px; margin: 0 auto; }
 .quick-pills, .tag-row, .filter-row { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -204,6 +206,8 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .auth-title { font-size: 20px; font-weight: 800; text-align: center; margin-bottom: 6px; color: var(--text); }
 .auth-sub { font-size: 13px; color: var(--text2); text-align: center; margin-bottom: 24px; }
 .form-group { margin-bottom: 14px; }
+.form-group.has-error .field-lbl { color: var(--red); }
+.field-error { margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--red); line-height: 1.35; }
 .divider-row { display: flex; align-items: center; gap: 14px; margin: 18px 0; color: var(--text3); font-size: 12px; }
 .divider-row::before, .divider-row::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .social-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 11px 16px; border-radius: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all .15s; margin-bottom: 10px; border: 1px solid var(--border); }
