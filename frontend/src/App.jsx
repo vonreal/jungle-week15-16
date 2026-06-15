@@ -1476,6 +1476,8 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
   const [deletingCommentId, setDeletingCommentId] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeletingPost, setIsDeletingPost] = useState(false);
   const loadPost = async () => {
     if (!selectedPostId) {
       setPost(null);
@@ -1529,13 +1531,14 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
     }
   };
   const deletePost = async () => {
-    if (!post || currentUser?.id !== post.user_id) return;
-    if (!window.confirm("게시글을 삭제하시겠어요? 삭제 후에는 되돌릴 수 없습니다.")) return;
+    if (!post || currentUser?.id !== post.user_id || isDeletingPost) return;
+    setIsDeletingPost(true);
     try {
       await postsApi.remove(post.id);
       onDeleted();
     } catch (event) {
       notifyUnavailable(event.message || "게시글 삭제에 실패했습니다.");
+      setIsDeletingPost(false);
     }
   };
   if (!post) {
@@ -1590,7 +1593,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
                     <Icon icon={Edit3} size={14} />
                     수정
                   </button>
-                  <button className="btn btn-danger btn-sm" onClick={deletePost} type="button">
+                  <button className="btn btn-danger btn-sm" onClick={() => setShowDeleteModal(true)} type="button">
                     <Icon icon={X} size={14} />
                     삭제
                   </button>
@@ -1670,6 +1673,23 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
           </div>
         </aside>
       </div>
+      {showDeleteModal && (
+        <div className="modal-backdrop" role="presentation">
+          <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-post-title">
+            <div className="modal-icon danger"><Icon icon={X} size={18} /></div>
+            <h2 id="delete-post-title" className="modal-title">게시글을 삭제할까요?</h2>
+            <p className="modal-desc">삭제한 게시글과 댓글은 되돌릴 수 없습니다.</p>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowDeleteModal(false)} disabled={isDeletingPost} type="button">
+                취소
+              </button>
+              <button className="btn btn-danger" onClick={deletePost} disabled={isDeletingPost} type="button">
+                {isDeletingPost ? "삭제 중" : "삭제"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
