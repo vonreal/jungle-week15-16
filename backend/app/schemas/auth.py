@@ -20,6 +20,11 @@ class UserLogin(BaseModel):
     password: str
 
 
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=4)
+
+
 class UserUpdate(BaseModel):
     nickname: str | None = Field(default=None, min_length=1, max_length=80)
     target_job: str | None = Field(default=None, max_length=120)

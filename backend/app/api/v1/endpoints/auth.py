@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.deps import CurrentUser, SessionDep, get_user_by_email
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models import User
-from app.schemas.auth import Token, UserCreate, UserLogin, UserRead, UserUpdate
+from app.schemas.auth import PasswordChange, Token, UserCreate, UserLogin, UserRead, UserUpdate
 
 router = APIRouter()
 
@@ -57,3 +57,16 @@ async def update_me(
     await session.commit()
     await session.refresh(current_user)
     return current_user
+
+
+@router.patch("/me/password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_password(
+    payload: PasswordChange,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Response:
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="현재 비밀번호가 올바르지 않습니다.")
+    current_user.password_hash = hash_password(payload.new_password)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

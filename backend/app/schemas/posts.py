@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class TagRead(BaseModel):
@@ -19,19 +19,31 @@ class PostStatRequirementIn(BaseModel):
 
 
 class PostCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=180)
-    content: str = Field(min_length=1)
+    title: str = Field(default="", max_length=180)
+    content: str = ""
     analysis_id: uuid.UUID | None = None
     recommendation_id: uuid.UUID | None = None
     is_public: bool = True
+    is_draft: bool = False
     tags: list[str] = []
     stat_requirements: list[PostStatRequirementIn] = []
 
+    @model_validator(mode="after")
+    def validate_publish_content(self) -> "PostCreate":
+        self.title = self.title.strip()
+        self.content = self.content.strip()
+        if not self.is_draft and (not self.title or not self.content):
+            raise ValueError("게시글 제목과 내용을 입력해주세요.")
+        if self.is_draft and not self.title:
+            self.title = "제목 없는 임시글"
+        return self
+
 
 class PostUpdate(BaseModel):
-    title: str | None = Field(default=None, min_length=1, max_length=180)
-    content: str | None = Field(default=None, min_length=1)
+    title: str | None = Field(default=None, max_length=180)
+    content: str | None = None
     is_public: bool | None = None
+    is_draft: bool | None = None
     tags: list[str] | None = None
     stat_requirements: list[PostStatRequirementIn] | None = None
 
@@ -61,10 +73,24 @@ class PostRead(BaseModel):
     analysis_id: uuid.UUID | None
     recommendation_id: uuid.UUID | None
     is_public: bool
+    is_draft: bool
     view_count: int
     created_at: datetime
     updated_at: datetime
     tags: list[TagRead] = []
+
+
+class PostApplicationRead(BaseModel):
+    id: int
+    post_id: uuid.UUID
+    user_id: uuid.UUID
+    user_nickname: str
+    created_at: datetime
+
+
+class PostApplicationStatus(BaseModel):
+    is_applied: bool
+    count: int
 
 
 class PostPage(BaseModel):
@@ -72,4 +98,3 @@ class PostPage(BaseModel):
     size: int
     total: int
     items: list[PostRead]
-

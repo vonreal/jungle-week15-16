@@ -110,6 +110,7 @@ const EMPTY_DATA = {
     actions: [],
   },
   posts: [],
+  drafts: [],
   postsPage: { page: 1, size: 12, total: 0 },
   comments: [],
 };
@@ -142,7 +143,7 @@ function buildRadar(userSkills = []) {
   }));
 }
 
-function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage = null) {
+function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage = null, drafts = []) {
   const base = {
     ...EMPTY_DATA,
     source: state?.source ?? "empty",
@@ -150,6 +151,7 @@ function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage 
     skills: buildSkillsByCategory(skillCatalog, userSkills),
     radar: buildRadar(userSkills),
     posts: postsPage?.items ?? [],
+    drafts,
     postsPage: postsPage
       ? { page: postsPage.page, size: postsPage.size, total: postsPage.total }
       : EMPTY_DATA.postsPage,
@@ -179,12 +181,13 @@ function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage 
 }
 
 async function fetchAppState(currentUser = null) {
-  const [skillCatalog, userSkills, postsPage] = await Promise.all([
+  const [skillCatalog, userSkills, postsPage, drafts] = await Promise.all([
     skillsApi.list(),
     currentUser ? skillsApi.mySkills() : Promise.resolve([]),
     postsApi.list({ page: 1, size: 50 }),
+    currentUser ? postsApi.drafts() : Promise.resolve([]),
   ]);
-  return normalizeAppState(null, skillCatalog, userSkills, postsPage);
+  return normalizeAppState(null, skillCatalog, userSkills, postsPage, drafts);
 }
 
 function formatDateTime(value) {
@@ -406,7 +409,12 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost })
   });
   const [saveState, setSaveState] = useState("idle");
   const [error, setError] = useState("");
+  const [passwordForm, setPasswordForm] = useState({ current_password: "", new_password: "", confirm_password: "" });
+  const [passwordState, setPasswordState] = useState("idle");
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const myPosts = data.posts.filter((post) => post.user_id === currentUser?.id);
+  const myDrafts = data.drafts ?? [];
   const enteredSkills = Object.values(data.skills)
     .flat()
     .filter((skill) => Number.isInteger(skill.lv));
@@ -463,6 +471,38 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost })
     } catch (event) {
       setError(event.message || "프로필 저장에 실패했습니다.");
       setSaveState("idle");
+    }
+  };
+  const updatePasswordForm = (field, value) => {
+    setPasswordForm((prev) => ({ ...prev, [field]: value }));
+    setPasswordError("");
+    setPasswordMessage("");
+  };
+  const changePassword = async () => {
+    const currentPassword = passwordForm.current_password;
+    const newPassword = passwordForm.new_password;
+    if (!currentPassword || !newPassword || !passwordForm.confirm_password) {
+      setPasswordError("현재 비밀번호와 새 비밀번호를 모두 입력해주세요.");
+      return;
+    }
+    if (newPassword.length < 4) {
+      setPasswordError("새 비밀번호는 4자 이상이어야 합니다.");
+      return;
+    }
+    if (newPassword !== passwordForm.confirm_password) {
+      setPasswordError("새 비밀번호 확인이 일치하지 않습니다.");
+      return;
+    }
+    setPasswordState("saving");
+    setPasswordError("");
+    try {
+      await authApi.changePassword({ current_password: currentPassword, new_password: newPassword });
+      setPasswordForm({ current_password: "", new_password: "", confirm_password: "" });
+      setPasswordMessage("비밀번호가 변경되었습니다.");
+      setPasswordState("saved");
+    } catch (event) {
+      setPasswordError(event.message || "비밀번호 변경에 실패했습니다.");
+      setPasswordState("idle");
     }
   };
 
@@ -580,6 +620,48 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost })
         </div>
       </div>
 
+      <div className="card account-card">
+        <div>
+          <div className="card-title">비밀번호 변경</div>
+          <p className="card-sub">현재 비밀번호 확인 후 새 비밀번호로 변경합니다</p>
+        </div>
+        <div className="password-change-grid">
+          <div className="form-group">
+            <label className="field-lbl" htmlFor="password-current">현재 비밀번호</label>
+            <PasswordInput
+              id="password-current"
+              value={passwordForm.current_password}
+              onChange={(event) => updatePasswordForm("current_password", event.target.value)}
+              placeholder="현재 비밀번호"
+            />
+          </div>
+          <div className="form-group">
+            <label className="field-lbl" htmlFor="password-new">새 비밀번호</label>
+            <PasswordInput
+              id="password-new"
+              value={passwordForm.new_password}
+              onChange={(event) => updatePasswordForm("new_password", event.target.value)}
+              placeholder="4자 이상"
+            />
+          </div>
+          <div className="form-group">
+            <label className="field-lbl" htmlFor="password-confirm">새 비밀번호 확인</label>
+            <PasswordInput
+              id="password-confirm"
+              value={passwordForm.confirm_password}
+              onChange={(event) => updatePasswordForm("confirm_password", event.target.value)}
+              placeholder="새 비밀번호 다시 입력"
+            />
+          </div>
+        </div>
+        {passwordError && <div className="auth-error">{passwordError}</div>}
+        {passwordMessage && <div className="auth-info">{passwordMessage}</div>}
+        <button className="btn btn-primary btn-sm fit" onClick={changePassword} disabled={passwordState === "saving"} type="button">
+          <Icon icon={Save} size={14} />
+          {passwordState === "saving" ? "변경 중" : "비밀번호 변경"}
+        </button>
+      </div>
+
       <div className="card">
         <div className="card-title card-title-spaced">내가 쓴 게시글</div>
         {myPosts.length ? (
@@ -600,6 +682,25 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost })
             description="스터디 모집 게시판에서 첫 글을 작성해보세요."
             action={<button className="btn btn-secondary btn-sm" onClick={() => go("post-write")} type="button">글쓰기</button>}
           />
+        )}
+      </div>
+
+      <div className="card">
+        <div className="card-title card-title-spaced">임시저장 글</div>
+        {myDrafts.length ? (
+          <div className="my-post-list">
+            {myDrafts.slice(0, 5).map((post) => (
+              <button key={post.id} className="my-post-row" onClick={() => onSelectPost(post.id)} type="button">
+                <div>
+                  <strong>{post.title}</strong>
+                  <span>{formatDateTime(post.updated_at)} · 임시저장</span>
+                </div>
+                <ArrowRight size={15} />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="임시저장 글이 없습니다" description="글쓰기 화면에서 작성 중인 내용을 임시저장할 수 있습니다." />
         )}
       </div>
     </div>
@@ -1478,10 +1579,15 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
   const [deletingCommentId, setDeletingCommentId] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeletingPost, setIsDeletingPost] = useState(false);
+  const [applicationStatus, setApplicationStatus] = useState({ is_applied: false, count: 0 });
+  const [applicants, setApplicants] = useState([]);
+  const [applicationAction, setApplicationAction] = useState("idle");
   const loadPost = async () => {
     if (!selectedPostId) {
       setPost(null);
       setComments([]);
+      setApplicationStatus({ is_applied: false, count: 0 });
+      setApplicants([]);
       setStatus("idle");
       return;
     }
@@ -1494,17 +1600,27 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
       ]);
       setPost(postDetail);
       setComments(postComments);
+      const nextApplicationStatus = await postsApi.applicationStatus(selectedPostId).catch(() => ({ is_applied: false, count: 0 }));
+      setApplicationStatus(nextApplicationStatus);
+      if (currentUser?.id === postDetail.user_id) {
+        const nextApplicants = await postsApi.applications(selectedPostId).catch(() => []);
+        setApplicants(nextApplicants);
+      } else {
+        setApplicants([]);
+      }
       setStatus("idle");
     } catch (event) {
       setPost(null);
       setComments([]);
+      setApplicationStatus({ is_applied: false, count: 0 });
+      setApplicants([]);
       setError(event.message || "게시글을 불러오지 못했습니다.");
       setStatus("error");
     }
   };
   useEffect(() => {
     loadPost();
-  }, [selectedPostId]);
+  }, [selectedPostId, currentUser?.id]);
   const submitComment = async () => {
     if (!requireAuth("댓글 등록은 로그인 후 사용할 수 있습니다.")) return;
     const content = comment.trim();
@@ -1539,6 +1655,34 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
     } catch (event) {
       notifyUnavailable(event.message || "게시글 삭제에 실패했습니다.");
       setIsDeletingPost(false);
+    }
+  };
+  const applyToPost = async () => {
+    if (!post || !requireAuth("스터디 신청은 로그인 후 사용할 수 있습니다.")) return;
+    setApplicationAction("saving");
+    try {
+      await postsApi.apply(post.id);
+      const nextStatus = await postsApi.applicationStatus(post.id);
+      setApplicationStatus(nextStatus);
+      notifyUnavailable("스터디 신청이 완료되었습니다.");
+    } catch (event) {
+      notifyUnavailable(event.message || "스터디 신청에 실패했습니다.");
+    } finally {
+      setApplicationAction("idle");
+    }
+  };
+  const cancelApplication = async () => {
+    if (!post || !requireAuth("스터디 신청 취소는 로그인 후 사용할 수 있습니다.")) return;
+    setApplicationAction("saving");
+    try {
+      await postsApi.cancelApplication(post.id);
+      const nextStatus = await postsApi.applicationStatus(post.id);
+      setApplicationStatus(nextStatus);
+      notifyUnavailable("스터디 신청을 취소했습니다.");
+    } catch (event) {
+      notifyUnavailable(event.message || "스터디 신청 취소에 실패했습니다.");
+    } finally {
+      setApplicationAction("idle");
     }
   };
   if (!post) {
@@ -1579,6 +1723,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
               <div className="post-detail-heading">
                 <h1 className="post-detail-title">{post.title}</h1>
                 <div className="tag-row">
+                  {post.is_draft && <span className="draft-badge">임시저장</span>}
                   <span className="role-badge" style={{ background: `${roleColor}18`, color: roleColor, borderColor: `${roleColor}30` }}>
                     {role}
                   </span>
@@ -1602,7 +1747,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
             </div>
             <div className="post-detail-meta">
               <div className="author-row"><div className="sm-av">CB</div><span>CareerBuddy 사용자</span></div>
-              <span>·</span><span>{formatDateTime(post.created_at)}</span><span>·</span><span>조회 {post.view_count}</span><span>·</span><span>댓글 {comments.length}</span>
+              <span>·</span><span>{formatDateTime(post.created_at)}</span><span>·</span><span>조회 {post.view_count}</span><span>·</span><span>댓글 {comments.length}</span><span>·</span><span>신청 {applicationStatus.count}</span>
             </div>
           </div>
           <div className="card post-body">
@@ -1661,7 +1806,34 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
             {tags.length ? tags.map((tag) => (
               <div key={tag} className="condition-row"><span>{tag}</span><strong>태그</strong></div>
             )) : <EmptyState title="조건 없음" description="작성자가 별도 조건을 설정하지 않았습니다." />}
-            <button className="btn btn-primary full-btn" onClick={() => notifyUnavailable("지원하기 기능은 다음 단계에서 연결할 예정입니다.")} type="button">지원하기</button>
+            {post.is_draft ? (
+              <button className="btn btn-secondary full-btn" disabled type="button">임시저장 글</button>
+            ) : canManagePost ? (
+              <div className="applicant-box">
+                <div className="applicant-summary">신청자 {applicationStatus.count}명</div>
+                {applicants.length ? (
+                  applicants.map((item) => (
+                    <div key={item.id} className="applicant-row">
+                      <div className="sm-av">{item.user_nickname.slice(0, 1)}</div>
+                      <div>
+                        <strong>{item.user_nickname}</strong>
+                        <span>{formatDateTime(item.created_at)}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="muted-sm">아직 신청자가 없습니다.</p>
+                )}
+              </div>
+            ) : applicationStatus.is_applied ? (
+              <button className="btn btn-secondary full-btn" onClick={cancelApplication} disabled={applicationAction === "saving"} type="button">
+                {applicationAction === "saving" ? "처리 중" : "신청 취소"}
+              </button>
+            ) : (
+              <button className="btn btn-primary full-btn" onClick={applyToPost} disabled={applicationAction === "saving"} type="button">
+                {applicationAction === "saving" ? "처리 중" : "스터디 신청"}
+              </button>
+            )}
           </div>
           <div className="card">
             <div className="card-title card-title-spaced">연동된 JD 분석</div>
@@ -1703,7 +1875,7 @@ function WritePostScreen({ go, data, editingPost, onSaved, notifyUnavailable }) 
   const [tags, setTags] = useState(editingPost ? postTagNames(editingPost) : ["백엔드"]);
   const [tagInput, setTagInput] = useState("");
   const [conds, setConds] = useState([{ skill: defaultSkill, lv: 3 }]);
-  const [isPublic, setIsPublic] = useState(editingPost?.is_public ?? true);
+  const [isPublic, setIsPublic] = useState(editingPost?.is_draft ? true : editingPost?.is_public ?? true);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const addTag = () => {
@@ -1719,6 +1891,34 @@ function WritePostScreen({ go, data, editingPost, onSaved, notifyUnavailable }) 
     addTag();
   };
   const updateCond = (index, key, value) => setConds((prev) => prev.map((item, i) => (i === index ? { ...item, [key]: value } : item)));
+  const buildRequirements = () =>
+    conds
+      .map((cond) => {
+        const skill = skillOptions.find((item) => item.name === cond.skill);
+        return skill?.id ? { skill_id: skill.id, min_level: cond.lv } : null;
+      })
+      .filter(Boolean);
+  const saveDraft = async () => {
+    setStatus("drafting");
+    setError("");
+    try {
+      const payload = {
+        title: title.trim() || "제목 없는 임시글",
+        content: content.trim(),
+        is_public: false,
+        is_draft: true,
+        tags,
+      };
+      if (!isEdit) payload.stat_requirements = buildRequirements();
+      const post = isEdit
+        ? await postsApi.update(editingPost.id, payload)
+        : await postsApi.create(payload);
+      onSaved(post.id, { draft: true });
+    } catch (event) {
+      setError(event.message || "임시저장에 실패했습니다.");
+      setStatus("idle");
+    }
+  };
   const publish = async () => {
     const cleanTitle = title.trim();
     const cleanContent = content.trim();
@@ -1728,20 +1928,15 @@ function WritePostScreen({ go, data, editingPost, onSaved, notifyUnavailable }) 
     }
     setStatus("loading");
     setError("");
-    const requirements = conds
-      .map((cond) => {
-        const skill = skillOptions.find((item) => item.name === cond.skill);
-        return skill?.id ? { skill_id: skill.id, min_level: cond.lv } : null;
-      })
-      .filter(Boolean);
     try {
       const payload = {
         title: cleanTitle,
         content: cleanContent,
         is_public: isPublic,
+        is_draft: false,
         tags,
       };
-      if (!isEdit) payload.stat_requirements = requirements;
+      if (!isEdit) payload.stat_requirements = buildRequirements();
       const post = isEdit
         ? await postsApi.update(editingPost.id, payload)
         : await postsApi.create(payload);
@@ -1758,8 +1953,8 @@ function WritePostScreen({ go, data, editingPost, onSaved, notifyUnavailable }) 
         <div><div className="page-eyebrow">스터디 모집</div><h1 className="page-title">{isEdit ? "게시글 수정" : "새 게시글 작성"}</h1></div>
         <div className="header-btns">
           <button className="btn btn-secondary btn-sm" onClick={() => (isEdit ? go("post-detail") : go("posts"))} type="button"><Icon icon={X} size={14} />취소</button>
-          <button className="btn btn-secondary btn-sm" onClick={() => notifyUnavailable("임시저장은 다음 단계에서 연결할 예정입니다.")} type="button"><Icon icon={Save} size={14} />임시저장</button>
-          <button className="btn btn-primary btn-sm" onClick={publish} disabled={status === "loading"} type="button"><Icon icon={Send} size={14} />{status === "loading" ? "저장 중" : isEdit ? "수정 저장" : "게시하기"}</button>
+          <button className="btn btn-secondary btn-sm" onClick={saveDraft} disabled={status === "drafting" || status === "loading"} type="button"><Icon icon={Save} size={14} />{status === "drafting" ? "저장 중" : "임시저장"}</button>
+          <button className="btn btn-primary btn-sm" onClick={publish} disabled={status === "loading" || status === "drafting"} type="button"><Icon icon={Send} size={14} />{status === "loading" ? "저장 중" : isEdit ? "수정 저장" : "게시하기"}</button>
         </div>
       </div>
       <div className="screen-stack">
@@ -2009,10 +2204,10 @@ export default function App() {
     setSelectedPostId(post.id);
     setScreen("post-write");
   };
-  const handlePostSaved = async (postId) => {
+  const handlePostSaved = async (postId, options = {}) => {
     setEditingPost(null);
     setSelectedPostId(postId);
-    await reloadAppData(currentUser, { label: "게시글 저장됨", tone: "ok" });
+    await reloadAppData(currentUser, { label: options.draft ? "임시저장됨" : "게시글 저장됨", tone: "ok" });
     setScreen("post-detail");
   };
   const handlePostDeleted = async () => {

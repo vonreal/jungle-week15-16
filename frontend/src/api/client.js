@@ -9,6 +9,7 @@ const ERROR_TRANSLATIONS = new Map([
   ["Comment not found", "댓글을 찾을 수 없습니다."],
   ["Unknown skill_id", "알 수 없는 스킬 정보입니다."],
   ["Forbidden", "권한이 없습니다."],
+  ["Current password is incorrect", "현재 비밀번호가 올바르지 않습니다."],
   ["Analysis not found", "분석 결과를 찾을 수 없습니다."],
   ["source_url is required", "채용공고 링크를 입력해주세요."],
   ["raw_text is required", "채용공고 내용을 입력해주세요."],
@@ -72,14 +73,20 @@ export const authApi = {
   login: (payload) => apiFetch("/auth/login", { method: "POST", body: JSON.stringify(payload) }),
   me: () => apiFetch("/auth/me"),
   updateMe: (payload) => apiFetch("/auth/me", { method: "PATCH", body: JSON.stringify(payload) }),
+  changePassword: (payload) => apiFetch("/auth/me/password", { method: "PATCH", body: JSON.stringify(payload) }),
 };
 
 export const postsApi = {
   list: (params = {}) => apiFetch(`/posts?${new URLSearchParams(params)}`),
+  drafts: () => apiFetch("/posts/drafts/me"),
   create: (payload) => apiFetch("/posts", { method: "POST", body: JSON.stringify(payload) }),
   get: (postId) => apiFetch(`/posts/${postId}`),
   update: (postId, payload) => apiFetch(`/posts/${postId}`, { method: "PATCH", body: JSON.stringify(payload) }),
   remove: (postId) => apiFetch(`/posts/${postId}`, { method: "DELETE" }),
+  applicationStatus: (postId) => apiFetch(`/posts/${postId}/applications/me`),
+  apply: (postId) => apiFetch(`/posts/${postId}/applications`, { method: "POST" }),
+  cancelApplication: (postId) => apiFetch(`/posts/${postId}/applications/me`, { method: "DELETE" }),
+  applications: (postId) => apiFetch(`/posts/${postId}/applications`),
   comments: (postId) => apiFetch(`/posts/${postId}/comments`),
   createComment: (postId, payload) => apiFetch(`/posts/${postId}/comments`, { method: "POST", body: JSON.stringify(payload) }),
   deleteComment: (postId, commentId) => apiFetch(`/posts/${postId}/comments/${commentId}`, { method: "DELETE" }),
