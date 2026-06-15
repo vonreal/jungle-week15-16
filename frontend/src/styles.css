@@ -217,7 +217,9 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .auth-link { text-align: center; font-size: 13px; color: var(--text2); margin-top: 14px; }
 .auth-link button { background: none; border: none; color: var(--blue); font-weight: 600; font-size: 13px; margin-left: 6px; }
 .auth-secondary-action { margin-top: 8px; }
+.auth-inline-action { display: block; margin: -4px 0 12px auto; padding: 0; border: none; background: none; color: var(--blue); font-size: 12.5px; font-weight: 700; }
 .auth-error { margin-bottom: 10px; padding: 9px 11px; border-radius: 8px; background: var(--red-l); border: 1px solid #FECACA; color: var(--red); font-size: 12.5px; font-weight: 700; }
+.auth-info { margin-bottom: 10px; padding: 9px 11px; border-radius: 8px; background: var(--blue-l); border: 1px solid #BFDBFE; color: var(--blue); font-size: 12.5px; font-weight: 700; line-height: 1.45; }
 .rc-wrap { display: flex; flex-wrap: wrap; gap: 7px; }
 .rc { padding: 7px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 13px; font-weight: 500; transition: all .15s; }
 .rc.on { background: var(--blue-l); border-color: var(--blue); color: var(--blue); font-weight: 600; }

@@ -35,7 +35,7 @@ async def signup(payload: UserCreate, session: SessionDep) -> Token:
 async def login(payload: UserLogin, session: SessionDep) -> Token:
     user = await get_user_by_email(session, payload.email)
     if user is None or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
 
     return Token(access_token=create_access_token(str(user.id)), user=UserRead.model_validate(user))
 
@@ -43,4 +43,3 @@ async def login(payload: UserLogin, session: SessionDep) -> Token:
 @router.get("/me", response_model=UserRead)
 async def me(current_user: CurrentUser) -> User:
     return current_user
-

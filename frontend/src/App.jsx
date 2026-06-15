@@ -852,18 +852,32 @@ function LoginScreen({ go, onAuthenticated }) {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const loginErrorMessage = (message) => {
+    if (message === "Invalid credentials") return "이메일 또는 비밀번호가 올바르지 않습니다.";
+    return message || "로그인에 실패했습니다.";
+  };
+
   const login = async () => {
     setStatus("loading");
     setError("");
+    setNotice("");
     try {
       const token = await authApi.login({ email, password });
       onAuthenticated(token);
       go("dashboard");
     } catch (event) {
-      setError(event.message || "로그인에 실패했습니다");
+      setError(loginErrorMessage(event.message));
       setStatus("idle");
     }
   };
+
+  const showPasswordResetNotice = () => {
+    setError("");
+    setNotice("비밀번호 찾기는 아직 준비 중입니다. 지금은 새 계정으로 가입하거나 관리자에게 문의해주세요.");
+  };
+
   return (
     <div className="auth-shell">
       <div className="auth-card">
@@ -882,7 +896,11 @@ function LoginScreen({ go, onAuthenticated }) {
           </label>
           <input id="login-pw" className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="비밀번호 입력" />
         </div>
+        <button className="auth-inline-action" onClick={showPasswordResetNotice} type="button">
+          비밀번호를 잊으셨나요?
+        </button>
         {error && <div className="auth-error">{error}</div>}
+        {notice && <div className="auth-info">{notice}</div>}
         <button className="btn btn-primary full-btn" onClick={login} disabled={status === "loading" || !email || !password} type="button">
           <Icon icon={LogIn} />
           {status === "loading" ? "로그인 중" : "로그인"}
