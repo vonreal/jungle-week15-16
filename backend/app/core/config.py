@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     database_url: str = Field(alias="DATABASE_URL")
     secret_key: str = Field(alias="SECRET_KEY")
-    access_token_expire_minutes: int = 60 * 24
+    access_token_expire_minutes: int = 60 * 24 * 30
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
