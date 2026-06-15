@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Edit3,
   Eye,
+  EyeOff,
   FileText,
   Home,
   LogIn,
@@ -218,6 +219,45 @@ function EmptyState({ title, description, action }) {
       <div className="empty-title">{title}</div>
       <p>{description}</p>
       {action}
+    </div>
+  );
+}
+
+function PasswordInput({
+  id,
+  value,
+  onChange,
+  placeholder,
+  className = "input",
+  onBlur,
+  ariaInvalid,
+  ariaDescribedBy,
+  dataSignupField,
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="password-wrap">
+      <input
+        id={id}
+        className={`${className} password-input`}
+        type={visible ? "text" : "password"}
+        data-signup-field={dataSignupField}
+        value={value}
+        onChange={onChange}
+        onBlur={onBlur}
+        placeholder={placeholder}
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedBy}
+      />
+      <button
+        className="password-toggle"
+        onClick={() => setVisible((next) => !next)}
+        type="button"
+        aria-label={visible ? "비밀번호 숨기기" : "비밀번호 보기"}
+        title={visible ? "비밀번호 숨기기" : "비밀번호 보기"}
+      >
+        <Icon icon={visible ? EyeOff : Eye} size={15} />
+      </button>
     </div>
   );
 }
@@ -927,7 +967,7 @@ function LoginScreen({ go, onAuthenticated }) {
           <label className="field-lbl" htmlFor="login-pw">
             비밀번호
           </label>
-          <input id="login-pw" className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="비밀번호 입력" />
+          <PasswordInput id="login-pw" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="비밀번호 입력" />
         </div>
         <button className="auth-inline-action" onClick={showPasswordResetNotice} type="button">
           비밀번호를 잊으셨나요?
@@ -1049,17 +1089,16 @@ function SignupScreen({ go, onAuthenticated }) {
         </div>
         <div className={`form-group ${fieldError("password") ? "has-error" : ""}`}>
           <label className="field-lbl" htmlFor="signup-pw">비밀번호</label>
-          <input
+          <PasswordInput
             id="signup-pw"
             className={`input ${fieldError("password") ? "input-error" : ""}`}
-            type="password"
-            data-signup-field="password"
+            dataSignupField="password"
             value={password}
             onChange={updateField(setPassword)}
             onBlur={() => markTouched("password")}
             placeholder="8자 이상"
-            aria-invalid={Boolean(fieldError("password"))}
-            aria-describedby={fieldError("password") ? "signup-pw-error" : undefined}
+            ariaInvalid={Boolean(fieldError("password"))}
+            ariaDescribedBy={fieldError("password") ? "signup-pw-error" : undefined}
           />
           {fieldError("password") && <div id="signup-pw-error" className="field-error">{fieldError("password")}</div>}
         </div>

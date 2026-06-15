@@ -14,7 +14,7 @@ router = APIRouter()
 async def signup(payload: UserCreate, session: SessionDep) -> Token:
     existing = await get_user_by_email(session, payload.email)
     if existing:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already exists")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="이미 가입된 이메일입니다.")
 
     user = User(
         email=payload.email.lower(),

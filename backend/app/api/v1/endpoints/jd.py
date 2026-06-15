@@ -30,10 +30,10 @@ async def create_jd(payload: JDCreate, session: SessionDep, current_user: Curren
     raw_text = payload.raw_text
     if payload.input_type == "link":
         if not payload.source_url:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="source_url is required")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="채용공고 링크를 입력해주세요.")
         raw_text = raw_text or await MCPCrawlerService().fetch_text(payload.source_url)
     if not raw_text:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="raw_text is required")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="채용공고 내용을 입력해주세요.")
 
     jd = JobDescription(
         user_id=current_user.id,
@@ -85,7 +85,7 @@ async def analyze_jd(
 ) -> dict:
     jd = await session.get(JobDescription, jd_id)
     if jd is None or jd.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="JD not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="채용공고를 찾을 수 없습니다.")
 
     analyzer = JDAnalyzerService()
     requirements = analyzer.extract_requirements(jd.raw_text)
@@ -158,4 +158,3 @@ async def list_analyses(session: SessionDep, current_user: CurrentUser) -> list[
             }
         )
     return rows
-

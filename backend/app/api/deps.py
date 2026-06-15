@@ -23,16 +23,16 @@ async def get_current_user(
 ) -> User:
     subject = decode_access_token(token)
     if not subject:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="로그인 정보가 유효하지 않습니다. 다시 로그인해주세요.")
 
     try:
         user_id = uuid.UUID(subject)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="로그인 정보가 유효하지 않습니다. 다시 로그인해주세요.") from exc
 
     user = await session.get(User, user_id)
     if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="사용자를 찾을 수 없습니다.")
     return user
 
 
@@ -42,4 +42,3 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
     result = await session.execute(select(User).where(User.email == email.lower()))
     return result.scalar_one_or_none()
-

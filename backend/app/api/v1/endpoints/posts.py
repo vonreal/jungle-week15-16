@@ -128,7 +128,7 @@ async def delete_comment(
 ) -> Response:
     comment = await session.get(Comment, comment_id)
     if comment is None or comment.post_id != post_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="댓글을 찾을 수 없습니다.")
     _ensure_owner(comment.user_id, current_user.id)
     await session.delete(comment)
     await session.commit()
@@ -141,7 +141,7 @@ async def _get_post_or_404(session: SessionDep, post_id: uuid.UUID) -> Post:
     )
     post = result.scalar_one_or_none()
     if post is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="게시글을 찾을 수 없습니다.")
     return post
 
 
@@ -175,7 +175,7 @@ async def _replace_stat_requirements(
         min_level = _field(item, "min_level")
         skill = await session.get(Skill, skill_id)
         if skill is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown skill_id")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="알 수 없는 스킬 정보입니다.")
         session.add(
             PostStatRequirement(
                 post_id=post.id,
@@ -187,7 +187,7 @@ async def _replace_stat_requirements(
 
 def _ensure_owner(owner_id: uuid.UUID, current_id: uuid.UUID) -> None:
     if owner_id != current_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="권한이 없습니다.")
 
 
 def _field(item, name: str):

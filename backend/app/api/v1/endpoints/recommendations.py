@@ -25,7 +25,7 @@ async def create_recommendation(
     )
     analyses = analyses_result.scalars().all()
     if len(analyses) != len(payload.analysis_ids):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="분석 결과를 찾을 수 없습니다.")
 
     jd_ids = [analysis.jd_id for analysis in analyses]
     requirements_result = await session.execute(
@@ -63,4 +63,3 @@ async def list_recommendations(
         .order_by(PortfolioRecommendation.created_at.desc())
     )
     return list(result.scalars().all())
-
