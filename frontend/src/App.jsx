@@ -1371,6 +1371,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
                 </button>
               </div>
             )}
+            <h1 className="post-detail-title">{post.title}</h1>
             <div className="tag-row">
               <span className="role-badge" style={{ background: `${roleColor}18`, color: roleColor, borderColor: `${roleColor}30` }}>
                 {role}
@@ -1379,7 +1380,6 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
                 <span key={stack} className="stk-tag stk-blue">{stack}</span>
               ))}
             </div>
-            <h1 className="post-detail-title">{post.title}</h1>
             <div className="post-detail-meta">
               <div className="author-row"><div className="sm-av">CB</div><span>CareerBuddy 사용자</span></div>
               <span>·</span><span>{formatDateTime(post.created_at)}</span><span>·</span><span>조회 {post.view_count}</span><span>·</span><span>댓글 {comments.length}</span>
