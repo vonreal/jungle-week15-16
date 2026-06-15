@@ -1,0 +1,38 @@
+from app.models.domain import (
+    Comment,
+    DocumentEmbedding,
+    ExperienceClassification,
+    JobDescription,
+    JDAnalysis,
+    JDRequirement,
+    PortfolioRecommendation,
+    Post,
+    PostStatRequirement,
+    PostTag,
+    Skill,
+    Tag,
+    User,
+    UserDocument,
+    UserExperience,
+    UserSkill,
+)
+
+__all__ = [
+    "Comment",
+    "DocumentEmbedding",
+    "ExperienceClassification",
+    "JobDescription",
+    "JDAnalysis",
+    "JDRequirement",
+    "PortfolioRecommendation",
+    "Post",
+    "PostStatRequirement",
+    "PostTag",
+    "Skill",
+    "Tag",
+    "User",
+    "UserDocument",
+    "UserExperience",
+    "UserSkill",
+]
+

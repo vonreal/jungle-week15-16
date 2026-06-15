@@ -1,158 +1,63 @@
-# jungle-week15-16
+# CareerBuddy
 
-AI로 진화하기
-1. 학습 목표
-•상용 AI 서비스 기반 응용 기술(RAG, MCP, AI Agent)을 익힙니다. 
+개발자가 자신의 역량을 파악하고, JD를 분석해 맞춤 포트폴리오 전략을 세울 수 있도록 돕는 AI 커리어 코치 서비스입니다.
 
-•실전 프로젝트에 사용될 웹 프레임워크를 익힙니다. 
+## Stack
 
-2. 학습 키워드
-•AI 응용 기술: RAG, MCP, AI agent
+- Frontend: React + Vite
+- Backend: FastAPI + SQLAlchemy + Alembic
+- DB: PostgreSQL + pgvector
+- RAG/Agent: LangChain + LangGraph
+- MCP: MCP Python SDK 연동 경계 포함
+- Deployment: AWS EC2 + Docker Compose
+- CI/CD: GitHub Actions workflow draft는 아직 커밋하지 않음
 
-•프레임워크
-    ◦프론트엔드: React
-    ◦백엔드: Node.js , Next.JS Nest.js, FastAPI, Spring Boot (Java/Kotlin)
+## Quick Start
 
-3. 과제
-•이번 주차의 학습 루틴과 그라운드 룰을 확인합니다. 
+```bash
+cp .env.example .env
+# .env의 POSTGRES_PASSWORD, DATABASE_URL, DOCKER_DATABASE_URL, SECRET_KEY를 로컬 값으로 변경하세요.
+docker compose up -d --build
+docker compose exec backend alembic upgrade head
+```
 
-과제 - AI 응용 기술을 활용한 게시판 구현
-개요
-•지금까지는 LLM 모델을 직접 만드는데 집중하였습니다. 이제는 LLM을 직접 만들어본 경험을 바탕으로 상용 LLM 활용해 실제 서비스 수준의 AI 웹 어플리케이션을 설계 구현하는것을 목표로 합니다.
+서비스:
 
-💡팀별로 과제를 하면 자신이 맡은 부분만 알게 됩니다. 이런 부작용을 막고자 이번 과제는 팀이 아닌 개인 과제입니다. 프론트엔드와 백엔드 그리고 AI 응용기술까지 자신이 직접 공부하고 구현 함으로써 내가 전부 설계하고 구현 했다는 경험을 해 보시길 바랍니다. 
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+- OpenAPI: http://localhost:8000/docs
 
-개발 환경
-•클라우드 또는 로컬 컴퓨터 중에 자유 선택
+초기 스킬 데이터:
 
-기술적 요구사항
-•프론트엔드: react
+```bash
+curl -X POST http://localhost:8000/api/v1/skills/seed
+```
 
-•백엔드 (아래 항목 중 하나 이상 선택)
-    ◦nextjs
-    ◦nestjs
-    ◦fastAPI
-    ◦springboot
+## Implemented Scope
 
-•데이터베이스 (아래 항목 중 하나 이상 선택)
-    ◦PostgresDB
-    ◦MariaDB
-    ◦MySQL
+- FastAPI 프로젝트 구조
+- React 프로젝트 구조
+- PostgreSQL + pgvector 스키마와 Alembic 초기 마이그레이션
+- JWT 회원가입/로그인
+- 게시물 CRUD, 댓글, 태그, 페이징, 검색 API
+- skills 시딩, 내 스탯 입력/조회, 레이더 차트 UI
+- 문서 업로드와 규칙 기반 경험 추출
+- JD 링크/텍스트/이미지 입력 API
+- JD 요구사항 추출, 갭 요약, 경험 3분류
+- pgvector 기반 RAG 저장/검색 경계
+- LangGraph Agent 기반 포트폴리오 추천 경계
 
-•LLM 모델
-    ◦상용 모델 중에 자유 선택
+## Environment
 
-•RAG (Retrieval-Augumented Generation)
-    ◦RAG는 개인 또는 사내 데이터와 LLM을 연결하는 가교 역할을 합니다.
-    ◦고려 사항
-        ▪데이터 소스 연동
-        ▪LLM에 맞는 Embedding 모델 연동
-        ▪Vector DB 선택 예:Pinecone, FAISS, ChromaDB, PostgreSQL용 pgvector)
-        ▪프레임워크 선택 (예: Langchain, LlamaIndex, Haystack)
+DB 접속 문자열, 비밀번호, API 키는 코드에 넣지 않고 `.env`에서만 읽습니다. 실제 `.env`는 git에 올리지 않고, 커밋에는 placeholder가 담긴 `.env.example`만 포함합니다.
 
-•MCP (Model Context Protocol)
-    ◦MCP는 LLM이 외부 시스템을 호출할 수 있도록 만들어 줍니다. 
-    ◦고려 사항
-        ▪MCP Server 구현
-        ▪JSON-RPC 기반의 요청/응답 처리
-        ▪최소 1개 이상의 실제 외부 서비스 연동
-        ▪API Key / 권한 관리 전략 포함
+```bash
+POSTGRES_PASSWORD=replace-with-local-password
+DATABASE_URL=postgresql+asyncpg://careerbuddy:replace-with-local-password@localhost:5432/careerbuddy
+DOCKER_DATABASE_URL=postgresql+asyncpg://careerbuddy:replace-with-local-password@db:5432/careerbuddy
+SECRET_KEY=<replace-with-a-long-random-string>
+ANTHROPIC_API_KEY=
+LLM_MODEL=claude-sonnet-4-6
+```
 
-•AI agent 구현
-        ◦에이전트는 스스로 도구를 선택하고 실행하는 '추론 루프'를 관리해야 합니다.
-        ◦고려 사항
-            ▪Function Calling 사용
-            ▪상태 관리 (Memory/State)
-            ▪LangGraph 또는 유사 구조
-            ▪무한 루프 방지 / 예외처리 설계
-
-사용자 기능
-•기본 게시판 기능 (필수)
-    ◦회원가입 / 로그인
-    ◦게시물  CURD
-    ◦댓글 
-    ◦태그
-    ◦페이징
-    ◦검색
-
-•AI 활용 기능 (필수)
-    ◦RAG를 이용한 기능
-    ◦MCP를 이용한 기능
-    ◦AI Agent를 이용한 기능
-
-RAG 기반 기능 예시
-•유사 게시글 자동 추천 및 요약
-사용자가 글을 쓸 때, 이전에 올라왔던 유사한 질문이나 토론 내용을 실시간으로 찾아 "이런 글들이 도움이 될 것 같아요"라며 요약본과 함께 추천합니다.
-
-•지식 베이스형 Q&A 봇
-게시판의 공지사항, FAQ, 과거 답변 데이터를 기반으로 사용자의 질문에 즉각 답변합니다. "작년 이벤트 당첨자 발표 언제였어?" 같은 질문에 정확한 링크와 내용을 제시합니다.
-
-•중복 게시글 방지 알림
-새 글을 작성할 때 이미 동일한 주제나 정보가 충분히 논의되었다면, 작성자에게 기존의 베스트 답변을 보여주며 중복 작성을 지양하도록 유도합니다.
-
-•게시판 히스토리 기반 트렌드 리포트
-특정 기간 동안 올라온 수천 개의 게시글을 분석하여, 현재 커뮤니티에서 가장 화두가 되는 이슈와 여론의 흐름을 요약 보고서 형태로 제공합니다.
-
-•다국어 지식 번역 및 검색
-한국어로 작성된 질문에 대해 영어권 커뮤니티나 해외 게시판의 관련 정보를 찾아 번역하여 답변의 깊이를 더해줍니다.
-
- 
-
-MCP 기반 기능 예시
-•실시간 외부 데이터 연동 포스팅
-주식, 날씨, 스포츠 경기 결과 등 외부 데이터를 MCP를 통해 가져와 게시판 서식에 맞춰 자동으로 실시간 브리핑 글을 작성합니다.
-
-•로컬 파일 분석 및 공유 서비스
-사용자가 업로드한 PDF나 Excel 파일을 MCP를 통해 분석하여 핵심 내용을 표로 정리해주거나, 파일 내 특정 데이터를 기반으로 차트를 그려 게시글에 첨부합니다.
-
-•사내 시스템 연동 업무 게시판
-기업용 게시판에서 MCP를 사용해 Jira, Slack, GitHub의 이슈 상태를 직접 조회하고 게시판 내에서 바로 업데이트할 수 있는 기능을 제공합니다.
-
-•스마트 미디어 임베딩
-유튜브 링크나 뉴스 URL만 올리면 MCP가 해당 페이지의 메타데이터와 핵심 내용을 긁어와 풍부한 미리보기 카드와 요약문을 생성합니다.
-
-•자동 DB 정규화 및 태깅
-게시글의 내용을 분석하여 MCP를 통해 데이터베이스의 카테고리, 태그, 관련 키워드를 자동으로 매칭하고 분류 체계를 정교하게 유지합니다.
-
- 
-
-Agent 기반 기능 예시
-•자율 운영 모더레이터 (Auto-Mod)
-스팸, 욕설, 혐오 표현을 감지하는 수준을 넘어 게시판의 분위기를 흐리는 맥락적 공격을 판단하고, 작성자에게 경고를 주거나 게시물을 보류 처리한 뒤 운영자에게 보고합니다.
-
-•논쟁 중재 및 토론 중재
-특정 게시글에서 댓글로 격렬한 논쟁이 벌어질 경우, 에이전트가 개입하여 양측의 주장을 객관적으로 정리하고 합의점을 찾아낼 수 있도록 토론 가이드를 제시합니다.
-
-•개인 맞춤형 콘텐츠 큐레이터
-사용자의 읽기 습관, 반응했던 글, 관심 키워드를 학습하여 매일 아침 "당신이 놓쳤을 법한 흥미로운 글 5가지"를 뉴스레터처럼 구성해 개인화된 알림을 보냅니다.
-
-•콘텐츠 확장 에이전트
-사용자가 짧은 아이디어만 올리면, 에이전트가 관련 자료를 조사하고 구조를 잡아 긴 형태의 완성도 있는 칼럼으로 초안을 작성해 주는 '글쓰기 파트너' 기능을 수행합니다.
-
-•이벤트 및 캠페인 자동 기획자
-게시판의 활성도가 떨어지는 시점에 에이전트가 스스로 "요즘 개발 관련 글이 적으니 '나만의 코딩 꿀팁 공유' 이벤트를 열어보자"고 제안하고, 공지문 작성부터 당첨자 선정 기준까지 설계합니다.
-
-제출물
-•프로그램 소스
-
-•README.md
-
-1 프로젝트 개요
-
-2 주요 구현 기능
-
-3 전체 아키텍처 구조
-
-4 각 AI 활용 기능, 기술 , 아키텍처 구조
-
-    •RAG 기능
-
-    •MCP 기능
-
-    •Agent 기능
-
-5 데모
-
-•스크린 샷 1개 이상
-
-6 회고, 한계점, 그리고 개선 아이디어
+키가 없으면 백엔드는 로컬 개발을 위해 규칙 기반 fallback을 반환합니다.

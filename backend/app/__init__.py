@@ -1,0 +1,2 @@
+"""CareerBuddy backend package."""
+
