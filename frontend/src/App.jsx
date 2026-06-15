@@ -1708,10 +1708,15 @@ function WritePostScreen({ go, data, editingPost, onSaved, notifyUnavailable }) 
   const [error, setError] = useState("");
   const addTag = () => {
     const next = tagInput.trim();
-    if (next && !tags.includes(next)) {
-      setTags([...tags, next]);
-      setTagInput("");
-    }
+    if (!next) return;
+    setTags((prev) => (prev.includes(next) ? prev : [...prev, next]));
+    setTagInput("");
+  };
+  const handleTagKeyDown = (event) => {
+    if (event.key !== "Enter") return;
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    addTag();
   };
   const updateCond = (index, key, value) => setConds((prev) => prev.map((item, i) => (i === index ? { ...item, [key]: value } : item)));
   const publish = async () => {
@@ -1782,7 +1787,7 @@ function WritePostScreen({ go, data, editingPost, onSaved, notifyUnavailable }) 
             ))}
           </div>
           <div className="inline-form">
-            <input className="input" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTag()} placeholder="태그 입력 후 Enter" />
+            <input className="input" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={handleTagKeyDown} placeholder="태그 입력 후 Enter" />
             <button className="btn btn-secondary btn-sm" onClick={addTag} type="button"><Icon icon={Plus} size={14} />추가</button>
           </div>
         </div>
