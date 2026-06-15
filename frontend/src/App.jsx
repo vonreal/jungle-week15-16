@@ -1358,27 +1358,31 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
       </div>
       <div className="detail-grid">
         <div className="screen-stack">
-          <div className="card">
-            {canManagePost && (
-              <div className="post-manage-row">
-                <button className="btn btn-secondary btn-sm" onClick={() => onEditPost(post)} type="button">
-                  <Icon icon={Edit3} size={14} />
-                  수정
-                </button>
-                <button className="btn btn-danger btn-sm" onClick={deletePost} type="button">
-                  <Icon icon={X} size={14} />
-                  삭제
-                </button>
+          <div className="card post-detail-card">
+            <div className="post-detail-head">
+              <div className="post-detail-heading">
+                <h1 className="post-detail-title">{post.title}</h1>
+                <div className="tag-row">
+                  <span className="role-badge" style={{ background: `${roleColor}18`, color: roleColor, borderColor: `${roleColor}30` }}>
+                    {role}
+                  </span>
+                  {tags.filter((tag) => tag !== role).map((stack) => (
+                    <span key={stack} className="stk-tag stk-blue">{stack}</span>
+                  ))}
+                </div>
               </div>
-            )}
-            <h1 className="post-detail-title">{post.title}</h1>
-            <div className="tag-row">
-              <span className="role-badge" style={{ background: `${roleColor}18`, color: roleColor, borderColor: `${roleColor}30` }}>
-                {role}
-              </span>
-              {tags.filter((tag) => tag !== role).map((stack) => (
-                <span key={stack} className="stk-tag stk-blue">{stack}</span>
-              ))}
+              {canManagePost && (
+                <div className="post-manage-row">
+                  <button className="btn btn-secondary btn-sm" onClick={() => onEditPost(post)} type="button">
+                    <Icon icon={Edit3} size={14} />
+                    수정
+                  </button>
+                  <button className="btn btn-danger btn-sm" onClick={deletePost} type="button">
+                    <Icon icon={X} size={14} />
+                    삭제
+                  </button>
+                </div>
+              )}
             </div>
             <div className="post-detail-meta">
               <div className="author-row"><div className="sm-av">CB</div><span>CareerBuddy 사용자</span></div>

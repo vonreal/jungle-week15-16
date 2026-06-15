@@ -259,8 +259,12 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; font-size: 13px; color: var(--text3); }
 .breadcrumb button { display: inline-flex; align-items: center; gap: 5px; background: none; border: none; color: var(--blue); font-weight: 600; font-size: 13px; }
 .detail-grid { display: grid; grid-template-columns: 1fr 294px; gap: 18px; align-items: start; }
-.post-detail-title { font-size: 20px; font-weight: 800; color: var(--text); margin: 10px 0; line-height: 1.3; }
-.post-manage-row { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 12px; }
+.post-detail-card { display: flex; flex-direction: column; gap: 14px; }
+.post-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.post-detail-heading { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.post-detail-title { font-size: 20px; font-weight: 800; color: var(--text); margin: 0; line-height: 1.35; overflow-wrap: anywhere; }
+.post-detail-meta { justify-content: flex-start; gap: 14px; color: var(--text3); }
+.post-manage-row { display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
 .post-body { font-size: 14px; color: var(--text); line-height: 1.85; }
 .post-body p + p { margin-top: 12px; }
 .comment-row { display: flex; gap: 10px; align-items: flex-start; padding: 13px 0; border-bottom: 1px solid var(--border); }
