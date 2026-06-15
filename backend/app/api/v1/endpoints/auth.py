@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, status
 from app.api.deps import CurrentUser, SessionDep, get_user_by_email
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models import User
-from app.schemas.auth import Token, UserCreate, UserLogin, UserRead
+from app.schemas.auth import Token, UserCreate, UserLogin, UserRead, UserUpdate
 
 router = APIRouter()
 
@@ -42,4 +42,18 @@ async def login(payload: UserLogin, session: SessionDep) -> Token:
 
 @router.get("/me", response_model=UserRead)
 async def me(current_user: CurrentUser) -> User:
+    return current_user
+
+
+@router.patch("/me", response_model=UserRead)
+async def update_me(
+    payload: UserUpdate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> User:
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(current_user, field, value)
+    await session.commit()
+    await session.refresh(current_user)
     return current_user

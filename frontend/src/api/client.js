@@ -71,6 +71,7 @@ export const authApi = {
   signup: (payload) => apiFetch("/auth/signup", { method: "POST", body: JSON.stringify(payload) }),
   login: (payload) => apiFetch("/auth/login", { method: "POST", body: JSON.stringify(payload) }),
   me: () => apiFetch("/auth/me"),
+  updateMe: (payload) => apiFetch("/auth/me", { method: "PATCH", body: JSON.stringify(payload) }),
 };
 
 export const postsApi = {

@@ -396,7 +396,16 @@ function Dashboard({ go, data, apiStatus, currentUser, onLogout, requireAuth }) 
   );
 }
 
-function MyPageScreen({ go, data, currentUser, onSelectPost, notifyUnavailable }) {
+function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [form, setForm] = useState({
+    nickname: currentUser.nickname,
+    target_job: currentUser.target_job ?? "",
+    target_company: currentUser.target_company ?? "",
+    is_public: currentUser.is_public,
+  });
+  const [saveState, setSaveState] = useState("idle");
+  const [error, setError] = useState("");
   const myPosts = data.posts.filter((post) => post.user_id === currentUser?.id);
   const enteredSkills = Object.values(data.skills)
     .flat()
@@ -411,6 +420,51 @@ function MyPageScreen({ go, data, currentUser, onSelectPost, notifyUnavailable }
     { label: "목표 회사", value: currentUser?.target_company || "미설정" },
     { label: "프로필 공개", value: currentUser?.is_public ? "공개" : "비공개" },
   ];
+  useEffect(() => {
+    setForm({
+      nickname: currentUser.nickname,
+      target_job: currentUser.target_job ?? "",
+      target_company: currentUser.target_company ?? "",
+      is_public: currentUser.is_public,
+    });
+  }, [currentUser]);
+  const updateForm = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setError("");
+  };
+  const cancelEdit = () => {
+    setForm({
+      nickname: currentUser.nickname,
+      target_job: currentUser.target_job ?? "",
+      target_company: currentUser.target_company ?? "",
+      is_public: currentUser.is_public,
+    });
+    setError("");
+    setIsEditing(false);
+  };
+  const saveProfile = async () => {
+    const nickname = form.nickname.trim();
+    if (!nickname) {
+      setError("닉네임을 입력해주세요.");
+      return;
+    }
+    setSaveState("saving");
+    setError("");
+    try {
+      const updatedUser = await authApi.updateMe({
+        nickname,
+        target_job: form.target_job.trim() || null,
+        target_company: form.target_company.trim() || null,
+        is_public: form.is_public,
+      });
+      await onProfileUpdated(updatedUser);
+      setIsEditing(false);
+      setSaveState("saved");
+    } catch (event) {
+      setError(event.message || "프로필 저장에 실패했습니다.");
+      setSaveState("idle");
+    }
+  };
 
   return (
     <div className="screen">
@@ -421,7 +475,7 @@ function MyPageScreen({ go, data, currentUser, onSelectPost, notifyUnavailable }
           <p className="page-sub">계정 정보와 내 활동을 한곳에서 확인합니다</p>
         </div>
         <div className="header-btns">
-          <button className="btn btn-secondary" onClick={() => notifyUnavailable("프로필 수정 API는 다음 단계에서 연결할 예정입니다.")} type="button">
+          <button className="btn btn-secondary" onClick={() => setIsEditing(true)} type="button">
             <Icon icon={Edit3} />
             프로필 수정
           </button>
@@ -439,14 +493,64 @@ function MyPageScreen({ go, data, currentUser, onSelectPost, notifyUnavailable }
             <div className="mypage-name">{currentUser.nickname}</div>
             <div className="mypage-role">{currentUser.target_job || "목표 직무 미설정"}</div>
           </div>
-          <div className="profile-info-list">
-            {profileItems.map((item) => (
-              <div key={item.label} className="profile-info-row">
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+          {isEditing ? (
+            <div className="profile-edit-form">
+              <div className="form-group">
+                <label className="field-lbl" htmlFor="profile-nickname">닉네임</label>
+                <input
+                  id="profile-nickname"
+                  className="input"
+                  value={form.nickname}
+                  onChange={(event) => updateForm("nickname", event.target.value)}
+                  placeholder="닉네임"
+                />
               </div>
-            ))}
-          </div>
+              <div className="form-group">
+                <label className="field-lbl" htmlFor="profile-job">목표 직무 <span className="field-optional">(선택)</span></label>
+                <input
+                  id="profile-job"
+                  className="input"
+                  value={form.target_job}
+                  onChange={(event) => updateForm("target_job", event.target.value)}
+                  placeholder="예: 백엔드 개발자"
+                />
+              </div>
+              <div className="form-group">
+                <label className="field-lbl" htmlFor="profile-company">목표 회사 <span className="field-optional">(선택)</span></label>
+                <input
+                  id="profile-company"
+                  className="input"
+                  value={form.target_company}
+                  onChange={(event) => updateForm("target_company", event.target.value)}
+                  placeholder="예: 네이버"
+                />
+              </div>
+              <button className="publish-row profile-toggle-row" onClick={() => updateForm("is_public", !form.is_public)} type="button">
+                <div>
+                  <strong>프로필 공개</strong>
+                  <span>{form.is_public ? "다른 사용자가 내 프로필을 볼 수 있습니다" : "내 프로필을 비공개로 둡니다"}</span>
+                </div>
+                <span className={`tog ${form.is_public ? "on" : ""}`} aria-hidden="true"><span className="tog-k" /></span>
+              </button>
+              {error && <div className="auth-error">{error}</div>}
+              <div className="profile-edit-actions">
+                <button className="btn btn-secondary btn-sm" onClick={cancelEdit} disabled={saveState === "saving"} type="button">취소</button>
+                <button className="btn btn-primary btn-sm" onClick={saveProfile} disabled={saveState === "saving"} type="button">
+                  <Icon icon={Save} size={14} />
+                  {saveState === "saving" ? "저장 중" : "저장"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="profile-info-list">
+              {profileItems.map((item) => (
+                <div key={item.label} className="profile-info-row">
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="card">
@@ -1892,6 +1996,10 @@ export default function App() {
     await reloadAppData(currentUser, { label: "게시글 삭제됨", tone: "ok" });
     setScreen("posts");
   };
+  const handleProfileUpdated = async (updatedUser) => {
+    setCurrentUser(updatedUser);
+    await reloadAppData(updatedUser, { label: "프로필 저장됨", tone: "ok" });
+  };
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -1935,7 +2043,7 @@ export default function App() {
   const pages = {
     dashboard: <Dashboard go={go} data={appData} apiStatus={apiStatus} currentUser={currentUser} onLogout={logout} requireAuth={requireAuth} />,
     mypage: currentUser ? (
-      <MyPageScreen go={go} data={appData} currentUser={currentUser} onSelectPost={openPost} notifyUnavailable={notifyUnavailable} />
+      <MyPageScreen go={go} data={appData} currentUser={currentUser} onProfileUpdated={handleProfileUpdated} onSelectPost={openPost} />
     ) : (
       <Dashboard go={go} data={appData} apiStatus={apiStatus} currentUser={currentUser} onLogout={logout} requireAuth={requireAuth} />
     ),
