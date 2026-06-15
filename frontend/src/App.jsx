@@ -1256,7 +1256,7 @@ function PostListScreen({ go, data, onSelectPost }) {
   );
 }
 
-function PostDetailScreen({ go, data, selectedPostId, currentUser, requireAuth, notifyUnavailable }) {
+function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, onDeleted, requireAuth, notifyUnavailable }) {
   const [comment, setComment] = useState("");
   const [post, setPost] = useState(null);
   const [comments, setComments] = useState([]);
@@ -1315,6 +1315,16 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, requireAuth, 
       setDeletingCommentId(null);
     }
   };
+  const deletePost = async () => {
+    if (!post || currentUser?.id !== post.user_id) return;
+    if (!window.confirm("게시글을 삭제하시겠어요? 삭제 후에는 되돌릴 수 없습니다.")) return;
+    try {
+      await postsApi.remove(post.id);
+      onDeleted();
+    } catch (event) {
+      notifyUnavailable(event.message || "게시글 삭제에 실패했습니다.");
+    }
+  };
   if (!post) {
     return (
       <div className="screen">
@@ -1338,6 +1348,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, requireAuth, 
   const role = postRole(post);
   const tags = postTagNames(post);
   const roleColor = ROLE_COLORS[role] ?? "#3B6FEF";
+  const canManagePost = currentUser?.id === post.user_id;
   return (
     <div className="screen">
       <div className="breadcrumb">
@@ -1348,6 +1359,18 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, requireAuth, 
       <div className="detail-grid">
         <div className="screen-stack">
           <div className="card">
+            {canManagePost && (
+              <div className="post-manage-row">
+                <button className="btn btn-secondary btn-sm" onClick={() => onEditPost(post)} type="button">
+                  <Icon icon={Edit3} size={14} />
+                  수정
+                </button>
+                <button className="btn btn-danger btn-sm" onClick={deletePost} type="button">
+                  <Icon icon={X} size={14} />
+                  삭제
+                </button>
+              </div>
+            )}
             <div className="tag-row">
               <span className="role-badge" style={{ background: `${roleColor}18`, color: roleColor, borderColor: `${roleColor}30` }}>
                 {role}
@@ -1434,15 +1457,16 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, requireAuth, 
   );
 }
 
-function WritePostScreen({ go, data, onCreated, notifyUnavailable }) {
+function WritePostScreen({ go, data, editingPost, onSaved, notifyUnavailable }) {
   const skillOptions = skillOptionsFromData(data);
   const defaultSkill = skillOptions[0]?.name ?? "Java";
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [tags, setTags] = useState(["백엔드"]);
+  const isEdit = Boolean(editingPost);
+  const [title, setTitle] = useState(editingPost?.title ?? "");
+  const [content, setContent] = useState(editingPost?.content ?? "");
+  const [tags, setTags] = useState(editingPost ? postTagNames(editingPost) : ["백엔드"]);
   const [tagInput, setTagInput] = useState("");
   const [conds, setConds] = useState([{ skill: defaultSkill, lv: 3 }]);
-  const [isPublic, setIsPublic] = useState(true);
+  const [isPublic, setIsPublic] = useState(editingPost?.is_public ?? true);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const addTag = () => {
@@ -1469,16 +1493,19 @@ function WritePostScreen({ go, data, onCreated, notifyUnavailable }) {
       })
       .filter(Boolean);
     try {
-      const post = await postsApi.create({
+      const payload = {
         title: cleanTitle,
         content: cleanContent,
         is_public: isPublic,
         tags,
-        stat_requirements: requirements,
-      });
-      onCreated(post.id);
+      };
+      if (!isEdit) payload.stat_requirements = requirements;
+      const post = isEdit
+        ? await postsApi.update(editingPost.id, payload)
+        : await postsApi.create(payload);
+      onSaved(post.id);
     } catch (event) {
-      setError(event.message || "게시글 등록에 실패했습니다.");
+      setError(event.message || (isEdit ? "게시글 수정에 실패했습니다." : "게시글 등록에 실패했습니다."));
       setStatus("idle");
     }
   };
@@ -1486,11 +1513,11 @@ function WritePostScreen({ go, data, onCreated, notifyUnavailable }) {
   return (
     <div className="screen">
       <div className="page-header">
-        <div><div className="page-eyebrow">스터디 모집</div><h1 className="page-title">새 게시글 작성</h1></div>
+        <div><div className="page-eyebrow">스터디 모집</div><h1 className="page-title">{isEdit ? "게시글 수정" : "새 게시글 작성"}</h1></div>
         <div className="header-btns">
-          <button className="btn btn-secondary btn-sm" onClick={() => go("posts")} type="button"><Icon icon={X} size={14} />취소</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => (isEdit ? go("post-detail") : go("posts"))} type="button"><Icon icon={X} size={14} />취소</button>
           <button className="btn btn-secondary btn-sm" onClick={() => notifyUnavailable("임시저장은 다음 단계에서 연결할 예정입니다.")} type="button"><Icon icon={Save} size={14} />임시저장</button>
-          <button className="btn btn-primary btn-sm" onClick={publish} disabled={status === "loading"} type="button"><Icon icon={Send} size={14} />{status === "loading" ? "게시 중" : "게시하기"}</button>
+          <button className="btn btn-primary btn-sm" onClick={publish} disabled={status === "loading"} type="button"><Icon icon={Send} size={14} />{status === "loading" ? "저장 중" : isEdit ? "수정 저장" : "게시하기"}</button>
         </div>
       </div>
       <div className="screen-stack">
@@ -1684,6 +1711,7 @@ export default function App() {
   const [appData, setAppData] = useState(EMPTY_DATA);
   const [currentUser, setCurrentUser] = useState(null);
   const [selectedPostId, setSelectedPostId] = useState(null);
+  const [editingPost, setEditingPost] = useState(null);
   const [apiStatus, setApiStatus] = useState({ label: "API 연결 중", tone: "loading" });
   const [notice, setNotice] = useState(null);
   const showNotice = (message, kind = "info") => {
@@ -1701,6 +1729,9 @@ export default function App() {
     if (!currentUser && protectedMessage) {
       showLoginNotice(protectedMessage);
       return;
+    }
+    if (id !== "post-write") {
+      setEditingPost(null);
     }
     setNotice(null);
     setScreen(id);
@@ -1721,17 +1752,31 @@ export default function App() {
     localStorage.removeItem("careerbuddy.token");
     setCurrentUser(null);
     setSelectedPostId(null);
+    setEditingPost(null);
     setNotice(null);
     setScreen("dashboard");
   };
   const openPost = (postId) => {
+    setEditingPost(null);
     setSelectedPostId(postId);
     setScreen("post-detail");
   };
-  const handlePostCreated = async (postId) => {
+  const editPost = (post) => {
+    setEditingPost(post);
+    setSelectedPostId(post.id);
+    setScreen("post-write");
+  };
+  const handlePostSaved = async (postId) => {
+    setEditingPost(null);
     setSelectedPostId(postId);
     await reloadAppData(currentUser, { label: "게시글 저장됨", tone: "ok" });
     setScreen("post-detail");
+  };
+  const handlePostDeleted = async () => {
+    setEditingPost(null);
+    setSelectedPostId(null);
+    await reloadAppData(currentUser, { label: "게시글 삭제됨", tone: "ok" });
+    setScreen("posts");
   };
 
   useEffect(() => {
@@ -1788,8 +1833,8 @@ export default function App() {
     analysis: <AnalysisScreen go={go} data={appData} />,
     portfolio: <PortfolioScreen data={appData} />,
     posts: <PostListScreen go={go} data={appData} onSelectPost={openPost} />,
-    "post-detail": <PostDetailScreen go={go} data={appData} selectedPostId={selectedPostId} currentUser={currentUser} requireAuth={requireAuth} notifyUnavailable={notifyUnavailable} />,
-    "post-write": <WritePostScreen go={go} data={appData} onCreated={handlePostCreated} notifyUnavailable={notifyUnavailable} />,
+    "post-detail": <PostDetailScreen go={go} data={appData} selectedPostId={selectedPostId} currentUser={currentUser} onEditPost={editPost} onDeleted={handlePostDeleted} requireAuth={requireAuth} notifyUnavailable={notifyUnavailable} />,
+    "post-write": <WritePostScreen go={go} data={appData} editingPost={editingPost} onSaved={handlePostSaved} notifyUnavailable={notifyUnavailable} />,
   };
 
   return (

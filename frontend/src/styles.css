@@ -73,6 +73,8 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .btn-primary:disabled:hover { background: var(--blue); }
 .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border-s); }
 .btn-secondary:hover { background: var(--bg); border-color: var(--text3); }
+.btn-danger { background: var(--red-l); color: var(--red); border: 1px solid #FECACA; }
+.btn-danger:hover { background: #FEE2E2; border-color: #FCA5A5; }
 .btn-sm { padding: 6px 12px; font-size: 12.5px; }
 .btn-lg { padding: 11px 22px; font-size: 14.5px; }
 .full-btn { width: 100%; }
@@ -258,6 +260,7 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .breadcrumb button { display: inline-flex; align-items: center; gap: 5px; background: none; border: none; color: var(--blue); font-weight: 600; font-size: 13px; }
 .detail-grid { display: grid; grid-template-columns: 1fr 294px; gap: 18px; align-items: start; }
 .post-detail-title { font-size: 20px; font-weight: 800; color: var(--text); margin: 10px 0; line-height: 1.3; }
+.post-manage-row { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 12px; }
 .post-body { font-size: 14px; color: var(--text); line-height: 1.85; }
 .post-body p + p { margin-top: 12px; }
 .comment-row { display: flex; gap: 10px; align-items: flex-start; padding: 13px 0; border-bottom: 1px solid var(--border); }
