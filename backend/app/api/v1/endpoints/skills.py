@@ -19,7 +19,10 @@ async def seed_skills(session: SessionDep) -> list[Skill]:
         stmt = (
             insert(Skill)
             .values(category=category, name=name, description=description)
-            .on_conflict_do_nothing(index_elements=["category", "name"])
+            .on_conflict_do_update(
+                index_elements=["category", "name"],
+                set_={"description": description},
+            )
         )
         await session.execute(stmt)
     await session.commit()
@@ -93,4 +96,3 @@ async def _list_skills(session: SessionDep, category: str | None = None) -> list
         stmt = stmt.where(Skill.category == category)
     result = await session.execute(stmt)
     return list(result.scalars().all())
-

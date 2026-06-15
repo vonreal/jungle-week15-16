@@ -61,14 +61,14 @@ const LV_COLORS = ["", "#9CA3AF", "#3B6FEF", "#7C3AED", "#C2830A"];
 const SKILL_OPTS = [
   "Java",
   "Python",
-  "JavaScript",
-  "TypeScript",
-  "Spring Boot",
-  "React",
-  "Docker",
-  "AWS",
-  "MySQL",
-  "Redis",
+  "JavaScript/TypeScript",
+  "SQL",
+  "API 설계",
+  "데이터 모델링",
+  "UI 컴포넌트 설계",
+  "RAG 설계",
+  "CI/CD",
+  "클라우드 배포",
 ];
 
 const JD_QUICK_LINKS = {
