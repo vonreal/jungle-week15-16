@@ -18,6 +18,7 @@ import {
   Search,
   Send,
   Upload,
+  User,
   UserPlus,
   Users,
   X,
@@ -36,10 +37,12 @@ const NAV_ICONS = {
   jdinput: Search,
   analysis: ClipboardList,
   portfolio: MapIcon,
+  mypage: User,
   posts: Users,
 };
 
 const PROTECTED_ROUTE_MESSAGES = {
+  mypage: "마이페이지는 로그인 후 사용할 수 있습니다.",
   stats: "스탯 수정과 저장은 로그인 후 사용할 수 있습니다.",
   "post-write": "스터디 모집 글쓰기는 로그인 후 사용할 수 있습니다.",
 };
@@ -388,6 +391,112 @@ function Dashboard({ go, data, apiStatus, currentUser, onLogout, requireAuth }) 
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function MyPageScreen({ go, data, currentUser, onSelectPost, notifyUnavailable }) {
+  const myPosts = data.posts.filter((post) => post.user_id === currentUser?.id);
+  const enteredSkills = Object.values(data.skills)
+    .flat()
+    .filter((skill) => Number.isInteger(skill.lv));
+  const avgLevel = enteredSkills.length
+    ? (enteredSkills.reduce((sum, skill) => sum + skill.lv, 0) / enteredSkills.length).toFixed(1)
+    : "-";
+  const profileItems = [
+    { label: "이메일", value: currentUser?.email },
+    { label: "닉네임", value: currentUser?.nickname },
+    { label: "목표 직무", value: currentUser?.target_job || "미설정" },
+    { label: "목표 회사", value: currentUser?.target_company || "미설정" },
+    { label: "프로필 공개", value: currentUser?.is_public ? "공개" : "비공개" },
+  ];
+
+  return (
+    <div className="screen">
+      <div className="page-header">
+        <div>
+          <div className="page-eyebrow">마이페이지</div>
+          <h1 className="page-title">{currentUser.nickname}님의 커리어 홈</h1>
+          <p className="page-sub">계정 정보와 내 활동을 한곳에서 확인합니다</p>
+        </div>
+        <div className="header-btns">
+          <button className="btn btn-secondary" onClick={() => notifyUnavailable("프로필 수정 API는 다음 단계에서 연결할 예정입니다.")} type="button">
+            <Icon icon={Edit3} />
+            프로필 수정
+          </button>
+          <button className="btn btn-primary" onClick={() => go("stats")} type="button">
+            <Icon icon={Zap} />
+            스탯 수정
+          </button>
+        </div>
+      </div>
+
+      <div className="mypage-grid">
+        <div className="card mypage-profile">
+          <div className="mypage-avatar">{currentUser.nickname.slice(0, 1)}</div>
+          <div>
+            <div className="mypage-name">{currentUser.nickname}</div>
+            <div className="mypage-role">{currentUser.target_job || "목표 직무 미설정"}</div>
+          </div>
+          <div className="profile-info-list">
+            {profileItems.map((item) => (
+              <div key={item.label} className="profile-info-row">
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title card-title-spaced">내 요약</div>
+          <div className="summary-grid">
+            <div className="summary-cell">
+              <strong>{enteredSkills.length}</strong>
+              <span>입력한 스킬</span>
+            </div>
+            <div className="summary-cell">
+              <strong>{avgLevel}</strong>
+              <span>평균 숙련도</span>
+            </div>
+            <div className="summary-cell">
+              <strong>{myPosts.length}</strong>
+              <span>작성한 글</span>
+            </div>
+          </div>
+          <div className="mini-title card-title">스탯 분포</div>
+          {data.radar.length ? (
+            <div className="mypage-radar">
+              <RadarChart data={data.radar} size={220} />
+            </div>
+          ) : (
+            <EmptyState title="스탯이 비어 있습니다" description="내 스탯에서 숙련도를 저장하면 요약이 표시됩니다." />
+          )}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title card-title-spaced">내가 쓴 게시글</div>
+        {myPosts.length ? (
+          <div className="my-post-list">
+            {myPosts.slice(0, 5).map((post) => (
+              <button key={post.id} className="my-post-row" onClick={() => onSelectPost(post.id)} type="button">
+                <div>
+                  <strong>{post.title}</strong>
+                  <span>{formatDateTime(post.created_at)} · 조회 {post.view_count}</span>
+                </div>
+                <ArrowRight size={15} />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            title="작성한 게시글이 없습니다"
+            description="스터디 모집 게시판에서 첫 글을 작성해보세요."
+            action={<button className="btn btn-secondary btn-sm" onClick={() => go("post-write")} type="button">글쓰기</button>}
+          />
+        )}
       </div>
     </div>
   );
@@ -1606,6 +1715,7 @@ function Brand({ center = false }) {
 function Sidebar({ screen, go, currentUser, onLogout }) {
   const mainNav = [
     { id: "dashboard", label: "대시보드" },
+    { id: "mypage", label: "마이페이지" },
     { id: "statsview", label: "내 스탯" },
     { id: "jdinput", label: "JD 입력" },
     { id: "analysis", label: "분석 결과" },
@@ -1664,9 +1774,9 @@ function Sidebar({ screen, go, currentUser, onLogout }) {
 function MobileNav({ screen, go }) {
   const items = [
     { id: "dashboard", label: "홈" },
+    { id: "mypage", label: "마이" },
     { id: "statsview", label: "스탯" },
     { id: "jdinput", label: "JD" },
-    { id: "analysis", label: "분석" },
     { id: "posts", label: "스터디" },
   ];
   const isActive = (id) =>
@@ -1824,6 +1934,11 @@ export default function App() {
 
   const pages = {
     dashboard: <Dashboard go={go} data={appData} apiStatus={apiStatus} currentUser={currentUser} onLogout={logout} requireAuth={requireAuth} />,
+    mypage: currentUser ? (
+      <MyPageScreen go={go} data={appData} currentUser={currentUser} onSelectPost={openPost} notifyUnavailable={notifyUnavailable} />
+    ) : (
+      <Dashboard go={go} data={appData} apiStatus={apiStatus} currentUser={currentUser} onLogout={logout} requireAuth={requireAuth} />
+    ),
     statsview: <StatsViewScreen go={go} data={appData} />,
     stats: (
       <StatsScreen
