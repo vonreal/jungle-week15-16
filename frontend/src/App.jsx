@@ -1262,6 +1262,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, requireAuth, 
   const [comments, setComments] = useState([]);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
+  const [deletingCommentId, setDeletingCommentId] = useState(null);
   const loadPost = async () => {
     if (!selectedPostId) {
       setPost(null);
@@ -1300,6 +1301,18 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, requireAuth, 
       setComments(nextComments);
     } catch (event) {
       notifyUnavailable(event.message || "댓글 등록에 실패했습니다.");
+    }
+  };
+  const deleteComment = async (commentId) => {
+    if (!post || deletingCommentId) return;
+    setDeletingCommentId(commentId);
+    try {
+      await postsApi.deleteComment(post.id, commentId);
+      setComments((prev) => prev.filter((item) => item.id !== commentId));
+    } catch (event) {
+      notifyUnavailable(event.message || "댓글 삭제에 실패했습니다.");
+    } finally {
+      setDeletingCommentId(null);
     }
   };
   if (!post) {
@@ -1360,7 +1373,20 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, requireAuth, 
               <div key={item.id} className="comment-row">
                 <div className="sm-av">{currentUser?.id === item.user_id ? currentUser.nickname.slice(0, 1) : "CB"}</div>
                 <div className="grow">
-                  <div className="comment-head"><strong>{currentUser?.id === item.user_id ? currentUser.nickname : "CareerBuddy 사용자"}</strong><span>{formatDateTime(item.created_at)}</span></div>
+                  <div className="comment-head">
+                    <strong>{currentUser?.id === item.user_id ? currentUser.nickname : "CareerBuddy 사용자"}</strong>
+                    <span>{formatDateTime(item.created_at)}</span>
+                    {currentUser?.id === item.user_id && (
+                      <button
+                        className="comment-action"
+                        onClick={() => deleteComment(item.id)}
+                        disabled={deletingCommentId === item.id}
+                        type="button"
+                      >
+                        {deletingCommentId === item.id ? "삭제 중" : "삭제"}
+                      </button>
+                    )}
+                  </div>
                   <p>{item.content}</p>
                 </div>
               </div>
