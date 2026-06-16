@@ -413,6 +413,7 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost })
   const [passwordState, setPasswordState] = useState("idle");
   const [passwordMessage, setPasswordMessage] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [passwordExpanded, setPasswordExpanded] = useState(false);
   const myPosts = data.posts.filter((post) => post.user_id === currentUser?.id);
   const myDrafts = data.drafts ?? [];
   const enteredSkills = Object.values(data.skills)
@@ -478,6 +479,11 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost })
     setPasswordError("");
     setPasswordMessage("");
   };
+  const cancelPasswordChange = () => {
+    setPasswordForm({ current_password: "", new_password: "", confirm_password: "" });
+    setPasswordError("");
+    setPasswordExpanded(false);
+  };
   const changePassword = async () => {
     const currentPassword = passwordForm.current_password;
     const newPassword = passwordForm.new_password;
@@ -500,6 +506,7 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost })
       setPasswordForm({ current_password: "", new_password: "", confirm_password: "" });
       setPasswordMessage("비밀번호가 변경되었습니다.");
       setPasswordState("saved");
+      setPasswordExpanded(false);
     } catch (event) {
       setPasswordError(event.message || "비밀번호 변경에 실패했습니다.");
       setPasswordState("idle");
@@ -620,88 +627,106 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost })
         </div>
       </div>
 
-      <div className="card account-card">
-        <div>
-          <div className="card-title">비밀번호 변경</div>
-          <p className="card-sub">현재 비밀번호 확인 후 새 비밀번호로 변경합니다</p>
-        </div>
-        <div className="password-change-grid">
-          <div className="form-group">
-            <label className="field-lbl" htmlFor="password-current">현재 비밀번호</label>
-            <PasswordInput
-              id="password-current"
-              value={passwordForm.current_password}
-              onChange={(event) => updatePasswordForm("current_password", event.target.value)}
-              placeholder="현재 비밀번호"
-            />
-          </div>
-          <div className="form-group">
-            <label className="field-lbl" htmlFor="password-new">새 비밀번호</label>
-            <PasswordInput
-              id="password-new"
-              value={passwordForm.new_password}
-              onChange={(event) => updatePasswordForm("new_password", event.target.value)}
-              placeholder="4자 이상"
-            />
-          </div>
-          <div className="form-group">
-            <label className="field-lbl" htmlFor="password-confirm">새 비밀번호 확인</label>
-            <PasswordInput
-              id="password-confirm"
-              value={passwordForm.confirm_password}
-              onChange={(event) => updatePasswordForm("confirm_password", event.target.value)}
-              placeholder="새 비밀번호 다시 입력"
-            />
-          </div>
-        </div>
-        {passwordError && <div className="auth-error">{passwordError}</div>}
-        {passwordMessage && <div className="auth-info">{passwordMessage}</div>}
-        <button className="btn btn-primary btn-sm fit" onClick={changePassword} disabled={passwordState === "saving"} type="button">
-          <Icon icon={Save} size={14} />
-          {passwordState === "saving" ? "변경 중" : "비밀번호 변경"}
-        </button>
-      </div>
-
-      <div className="card">
-        <div className="card-title card-title-spaced">내가 쓴 게시글</div>
-        {myPosts.length ? (
-          <div className="my-post-list">
-            {myPosts.slice(0, 5).map((post) => (
-              <button key={post.id} className="my-post-row" onClick={() => onSelectPost(post.id)} type="button">
-                <div>
-                  <strong>{post.title}</strong>
-                  <span>{formatDateTime(post.created_at)} · 조회 {post.view_count}</span>
-                </div>
-                <ArrowRight size={15} />
+      <div className="mypage-sections">
+        <div className="card account-card">
+          <div className="account-card-head">
+            <div>
+              <div className="card-title">비밀번호 변경</div>
+              <p className="card-sub compact">현재 비밀번호 확인 후 새 비밀번호로 변경합니다</p>
+            </div>
+            {!passwordExpanded && (
+              <button className="btn btn-secondary btn-sm" onClick={() => setPasswordExpanded(true)} type="button">
+                변경 활성화
               </button>
-            ))}
+            )}
           </div>
-        ) : (
-          <EmptyState
-            title="작성한 게시글이 없습니다"
-            description="스터디 모집 게시판에서 첫 글을 작성해보세요."
-            action={<button className="btn btn-secondary btn-sm" onClick={() => go("post-write")} type="button">글쓰기</button>}
-          />
-        )}
-      </div>
-
-      <div className="card">
-        <div className="card-title card-title-spaced">임시저장 글</div>
-        {myDrafts.length ? (
-          <div className="my-post-list">
-            {myDrafts.slice(0, 5).map((post) => (
-              <button key={post.id} className="my-post-row" onClick={() => onSelectPost(post.id)} type="button">
-                <div>
-                  <strong>{post.title}</strong>
-                  <span>{formatDateTime(post.updated_at)} · 임시저장</span>
+          {passwordMessage && <div className="auth-info">{passwordMessage}</div>}
+          {passwordExpanded && (
+            <>
+              <div className="password-change-grid">
+                <div className="form-group">
+                  <label className="field-lbl" htmlFor="password-current">현재 비밀번호</label>
+                  <PasswordInput
+                    id="password-current"
+                    value={passwordForm.current_password}
+                    onChange={(event) => updatePasswordForm("current_password", event.target.value)}
+                    placeholder="현재 비밀번호"
+                  />
                 </div>
-                <ArrowRight size={15} />
-              </button>
-            ))}
-          </div>
-        ) : (
-          <EmptyState title="임시저장 글이 없습니다" description="글쓰기 화면에서 작성 중인 내용을 임시저장할 수 있습니다." />
-        )}
+                <div className="form-group">
+                  <label className="field-lbl" htmlFor="password-new">새 비밀번호</label>
+                  <PasswordInput
+                    id="password-new"
+                    value={passwordForm.new_password}
+                    onChange={(event) => updatePasswordForm("new_password", event.target.value)}
+                    placeholder="4자 이상"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="field-lbl" htmlFor="password-confirm">새 비밀번호 확인</label>
+                  <PasswordInput
+                    id="password-confirm"
+                    value={passwordForm.confirm_password}
+                    onChange={(event) => updatePasswordForm("confirm_password", event.target.value)}
+                    placeholder="새 비밀번호 다시 입력"
+                  />
+                </div>
+              </div>
+              {passwordError && <div className="auth-error">{passwordError}</div>}
+              <div className="password-actions">
+                <button className="btn btn-secondary btn-sm" onClick={cancelPasswordChange} disabled={passwordState === "saving"} type="button">
+                  취소
+                </button>
+                <button className="btn btn-primary btn-sm" onClick={changePassword} disabled={passwordState === "saving"} type="button">
+                  <Icon icon={Save} size={14} />
+                  {passwordState === "saving" ? "변경 중" : "비밀번호 변경"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="card">
+          <div className="card-title card-title-spaced">내가 쓴 게시글</div>
+          {myPosts.length ? (
+            <div className="my-post-list">
+              {myPosts.slice(0, 5).map((post) => (
+                <button key={post.id} className="my-post-row" onClick={() => onSelectPost(post.id)} type="button">
+                  <div>
+                    <strong>{post.title}</strong>
+                    <span>{formatDateTime(post.created_at)} · 조회 {post.view_count}</span>
+                  </div>
+                  <ArrowRight size={15} />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="작성한 게시글이 없습니다"
+              description="스터디 모집 게시판에서 첫 글을 작성해보세요."
+              action={<button className="btn btn-secondary btn-sm" onClick={() => go("post-write")} type="button">글쓰기</button>}
+            />
+          )}
+        </div>
+
+        <div className="card">
+          <div className="card-title card-title-spaced">임시저장 글</div>
+          {myDrafts.length ? (
+            <div className="my-post-list">
+              {myDrafts.slice(0, 5).map((post) => (
+                <button key={post.id} className="my-post-row" onClick={() => onSelectPost(post.id)} type="button">
+                  <div>
+                    <strong>{post.title}</strong>
+                    <span>{formatDateTime(post.updated_at)} · 임시저장</span>
+                  </div>
+                  <ArrowRight size={15} />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="임시저장 글이 없습니다" description="글쓰기 화면에서 작성 중인 내용을 임시저장할 수 있습니다." />
+          )}
+        </div>
       </div>
     </div>
   );
