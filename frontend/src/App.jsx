@@ -76,15 +76,7 @@ const SKILL_OPTS = [
   "클라우드 배포",
 ];
 
-const JD_QUICK_LINKS = [
-  { company: "카카오", url: "https://careers.kakao.com" },
-  { company: "네이버", url: "https://recruit.navercorp.com" },
-  { company: "라인", url: "https://careers.linecorp.com" },
-  { company: "토스", url: "https://toss.im/career" },
-  { company: "당근마켓", url: "https://about.daangn.com/jobs" },
-  { company: "쿠팡", url: "https://www.coupang.jobs/kr" },
-  { company: "배민", url: "https://career.woowahan.com" },
-];
+const JD_QUICK_COMPANIES = ["카카오", "네이버", "라인", "토스", "당근마켓", "쿠팡", "배민"];
 
 function userInitial(name) {
   return (name || "C").trim().slice(0, 1).toUpperCase();
@@ -2131,18 +2123,17 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed, setGlob
               <div>
                 <div className="field-lbl">회사 빠른 선택</div>
                 <div className="quick-pills">
-                  {JD_QUICK_LINKS.map((item) => (
+                  {JD_QUICK_COMPANIES.map((companyName) => (
                     <button
-                      key={item.company}
+                      key={companyName}
                       className="quick-pill"
                       onClick={() => {
-                        setCompany(item.company);
-                        setLink(item.url);
+                        setCompany(companyName);
                         setError("");
                       }}
                       type="button"
                     >
-                      {item.company}
+                      {companyName}
                     </button>
                   ))}
                 </div>
