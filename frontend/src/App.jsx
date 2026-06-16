@@ -86,12 +86,124 @@ function userInitial(name) {
   return (name || "C").trim().slice(0, 1).toUpperCase();
 }
 
+const RELATED_SKILLS = {
+  "spring boot": ["spring", "java", "api 설계"],
+  spring: ["spring boot", "java", "api 설계"],
+  jpa: ["java", "데이터 모델링", "데이터베이스 기초"],
+  fastapi: ["python", "api 설계"],
+  react: ["javascript", "typescript", "javascript/typescript", "ui 컴포넌트 설계"],
+  typescript: ["javascript", "javascript/typescript"],
+  javascript: ["typescript", "javascript/typescript"],
+  postgresql: ["sql", "데이터베이스 기초", "데이터 모델링"],
+  mysql: ["sql", "데이터베이스 기초", "데이터 모델링"],
+  redis: ["데이터베이스 기초", "데이터 모델링", "백엔드"],
+  kafka: ["백엔드", "시스템 설계", "네트워크"],
+  docker: ["컨테이너", "배포", "운영/협업"],
+  kubernetes: ["컨테이너", "배포", "운영/협업"],
+  aws: ["클라우드 배포", "배포", "운영/협업"],
+  "ci/cd": ["github actions", "배포", "운영/협업"],
+  "github actions": ["ci/cd", "github", "배포"],
+  rag: ["rag 설계", "langchain", "python"],
+  langchain: ["rag", "rag 설계", "python"],
+  langgraph: ["rag", "rag 설계", "python"],
+};
+
 const TONE_STYLE = {
   purple: { bg: "var(--purple-l)", c: "var(--purple)", bc: "var(--purple-m)" },
   blue: { bg: "var(--blue-l)", c: "var(--blue)", bc: "var(--blue-m)" },
   amber: { bg: "var(--amber-l)", c: "var(--amber)", bc: "var(--amber-m)" },
   green: { bg: "var(--green-l)", c: "var(--green)", bc: "#A7F3D0" },
 };
+
+function normalizeSkillName(value = "") {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function scoreRequirement(requirement, userSkills = []) {
+  const reqName = normalizeSkillName(requirement.skill_name);
+  let best = 0;
+  let kind = "none";
+  const related = RELATED_SKILLS[reqName] ?? [];
+
+  userSkills.forEach((item) => {
+    const skillName = normalizeSkillName(item.skill?.name);
+    const categoryName = normalizeSkillName(item.skill?.category);
+    const levelFactor = Math.max(1, Number(item.level) || 1) / 4;
+    let confidence = 0;
+    let nextKind = "none";
+
+    if (skillName === reqName) {
+      confidence = 1;
+      nextKind = "direct";
+    } else if (related.some((name) => normalizeSkillName(name) === skillName)) {
+      confidence = 0.65;
+      nextKind = "related";
+    } else if (skillName && (reqName.includes(skillName) || skillName.includes(reqName))) {
+      confidence = 0.5;
+      nextKind = "related";
+    } else if (related.some((name) => normalizeSkillName(name) === categoryName)) {
+      confidence = 0.45;
+      nextKind = "related";
+    }
+
+    const weighted = confidence * levelFactor;
+    if (weighted > best) {
+      best = weighted;
+      kind = nextKind;
+    }
+  });
+
+  return { value: best, kind };
+}
+
+function renderMarkdownInline(text) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+    return <span key={index}>{part}</span>;
+  });
+}
+
+function MarkdownSummary({ text }) {
+  if (!text) return null;
+  const lines = text.split(/\r?\n/);
+  return (
+    <div className="analysis-summary">
+      {lines.map((line, index) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={index} className="md-space" />;
+        if (/^-{3,}$/.test(trimmed)) return <hr key={index} className="md-rule" />;
+
+        const numbered = trimmed.match(/^(\d+)\.\s+(.*)$/);
+        if (numbered) {
+          return (
+            <div key={index} className="md-line md-numbered">
+              <span className="md-marker">{numbered[1]}.</span>
+              <span>{renderMarkdownInline(numbered[2])}</span>
+            </div>
+          );
+        }
+
+        const bullet = trimmed.match(/^[-*]\s+(.*)$/);
+        if (bullet) {
+          return (
+            <div key={index} className="md-line md-bullet">
+              <span className="md-marker">-</span>
+              <span>{renderMarkdownInline(bullet[1])}</span>
+            </div>
+          );
+        }
+
+        return (
+          <p key={index} className="md-p">
+            {renderMarkdownInline(trimmed)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
 
 const EMPTY_DATA = {
   source: "empty",
@@ -152,10 +264,13 @@ function buildRadar(userSkills = []) {
 function normalizeAnalysis(analysis, userSkills = []) {
   if (!analysis) return EMPTY_DATA.analysis;
   const requirements = analysis.requirements ?? [];
-  const userSkillNames = new Set(userSkills.map((item) => item.skill?.name).filter(Boolean));
-  const matchedCount = requirements.filter((item) => userSkillNames.has(item.skill_name)).length;
-  const score = requirements.length ? Math.round((matchedCount / requirements.length) * 100) : 0;
-  const missingRequirements = requirements.filter((item) => !userSkillNames.has(item.skill_name));
+  const requirementScores = requirements.map((item) => scoreRequirement(item, userSkills));
+  const score = requirements.length
+    ? Math.round((requirementScores.reduce((sum, item) => sum + item.value, 0) / requirements.length) * 100)
+    : 0;
+  const directCount = requirementScores.filter((item) => item.kind === "direct").length;
+  const relatedCount = requirementScores.filter((item) => item.kind === "related").length;
+  const missingRequirements = requirements.filter((_, index) => requirementScores[index]?.value < 0.7);
   const classifications = analysis.classifications ?? [];
   return {
     title: analysis.jd_title,
@@ -172,6 +287,9 @@ function normalizeAnalysis(analysis, userSkills = []) {
       icon: String(index + 1),
     })),
     gapSummary: analysis.gap_summary,
+    scoreHint: requirements.length
+      ? `직접 ${directCount}개 · 연관 ${relatedCount}개 / 요구 ${requirements.length}개`
+      : "요구사항 추출 전",
   };
 }
 
@@ -1343,6 +1461,7 @@ function AnalysisScreen({ go, data }) {
         <div className="score-box">
           <div className="score">{analysis.score}%</div>
           <div className="score-label">매칭 스코어</div>
+          {analysis.scoreHint && <div className="score-hint">{analysis.scoreHint}</div>}
           <button className="btn btn-primary btn-sm" onClick={() => go("portfolio")} type="button">
             포트폴리오 추천
             <Icon icon={ArrowRight} size={14} />
@@ -1393,7 +1512,7 @@ function AnalysisScreen({ go, data }) {
         <div className="card">
           <div className="card-title">갭 파악 결과</div>
           <p className="card-sub">합격을 위해 보완이 필요한 핵심 역량</p>
-          {analysis.gapSummary && <div className="analysis-summary">{analysis.gapSummary}</div>}
+          <MarkdownSummary text={analysis.gapSummary} />
           <div className="gap-grid">
             {analysis.gaps.map((gap) => (
               <div key={gap.name} className="gap-box">
