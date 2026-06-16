@@ -114,6 +114,8 @@ const TONE_STYLE = {
   amber: { bg: "var(--amber-l)", c: "var(--amber)", bc: "var(--amber-m)" },
   green: { bg: "var(--green-l)", c: "var(--green)", bc: "#A7F3D0" },
 };
+const JD_ANALYSIS_STEPS = ["JD 저장", "AI 분석", "결과 갱신"];
+const JD_REANALYSIS_STEPS = ["재분석 요청", "AI 재분석", "결과 갱신"];
 
 function normalizeSkillName(value = "") {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
@@ -1363,7 +1365,9 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed, setGlob
     setStatus("saving");
     setGlobalLoading({
       title: "JD를 분석하는 중입니다",
-      description: "채용공고 저장, RAG 검색, 내 스탯 비교를 순서대로 처리하고 있습니다.",
+      description: "채용공고를 저장하고 분석 준비를 시작합니다.",
+      steps: JD_ANALYSIS_STEPS,
+      activeStep: 0,
     });
     setError("");
     try {
@@ -1374,7 +1378,19 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed, setGlob
         raw_text: tab === "text" ? nextText : null,
         input_type: tab,
       });
+      setGlobalLoading({
+        title: "JD를 분석하는 중입니다",
+        description: "RAG 검색, 요구 역량 추출, 내 스탯 비교, 경험 분류를 처리하고 있습니다.",
+        steps: JD_ANALYSIS_STEPS,
+        activeStep: 1,
+      });
       await jdApi.analyze(jd.id);
+      setGlobalLoading({
+        title: "분석 결과를 정리하는 중입니다",
+        description: "완료된 분석 결과를 불러와 화면에 반영하고 있습니다.",
+        steps: JD_ANALYSIS_STEPS,
+        activeStep: 2,
+      });
       await onAnalyzed();
     } catch (event) {
       setError(event.message || "JD 분석에 실패했습니다.");
@@ -1539,10 +1555,24 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
     if (!target?.id) return;
     setGlobalLoading?.({
       title: "업데이트된 정보로 재분석 중입니다",
-      description: "이력서/포트폴리오 변경사항을 반영해 JD 갭과 경험 분류를 다시 계산합니다",
+      description: "기존 JD 분석을 새 이력서/포트폴리오 기준으로 다시 요청합니다.",
+      steps: JD_REANALYSIS_STEPS,
+      activeStep: 0,
     });
     try {
+      setGlobalLoading?.({
+        title: "업데이트된 정보로 재분석 중입니다",
+        description: "RAG 검색, 갭 분석, 경험 분류를 새 정보 기준으로 다시 계산하고 있습니다.",
+        steps: JD_REANALYSIS_STEPS,
+        activeStep: 1,
+      });
       const nextAnalysis = await jdApi.reanalyze(target.id);
+      setGlobalLoading?.({
+        title: "재분석 결과를 정리하는 중입니다",
+        description: "완료된 재분석 결과를 불러와 화면에 반영하고 있습니다.",
+        steps: JD_REANALYSIS_STEPS,
+        activeStep: 2,
+      });
       await onReanalyzed?.(nextAnalysis);
       setSelectedAnalysisId(nextAnalysis.id);
     } catch (event) {
@@ -3028,6 +3058,20 @@ function GlobalLoadingOverlay({ loading }) {
         <LoaderCircle className="global-loading-icon" size={34} />
         <div className="global-loading-title">{loading.title}</div>
         <div className="global-loading-desc">{loading.description}</div>
+        {loading.steps?.length ? (
+          <div className="global-loading-steps" aria-label="작업 단계">
+            {loading.steps.map((step, index) => {
+              const isDone = index < loading.activeStep;
+              const isActive = index === loading.activeStep;
+              return (
+                <div key={step} className={`loading-step ${isDone ? "done" : ""} ${isActive ? "active" : ""}`}>
+                  <span>{index + 1}</span>
+                  <strong>{step}</strong>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
     </div>
   );
