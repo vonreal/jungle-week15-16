@@ -56,8 +56,8 @@ POSTGRES_PASSWORD=replace-with-local-password
 DATABASE_URL=postgresql+asyncpg://careerbuddy:replace-with-local-password@localhost:5432/careerbuddy
 DOCKER_DATABASE_URL=postgresql+asyncpg://careerbuddy:replace-with-local-password@db:5432/careerbuddy
 SECRET_KEY=<replace-with-a-long-random-string>
-ANTHROPIC_API_KEY=
-LLM_MODEL=claude-sonnet-4-6
+OPENAI_API_KEY=
+LLM_MODEL=gpt-4.1-mini
 ```
 
 키가 없으면 백엔드는 로컬 개발을 위해 규칙 기반 fallback을 반환합니다.

@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60 * 24 * 30
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
-    anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
-    llm_model: str = "claude-sonnet-4-6"
+    openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
+    llm_model: str = "gpt-4.1-mini"
 
     aws_host: str | None = None
     aws_user: str | None = None
