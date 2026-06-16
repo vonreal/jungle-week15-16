@@ -51,7 +51,11 @@ class PortfolioAgentService:
             missing = [item for item in state["common"] if item not in owned]
             prompt = (
                 "다음 부족 역량을 6단계 액션 플랜으로 작성하세요.\n"
-                "각 줄은 바로 실행 가능한 작업 한 문장으로 작성하세요.\n"
+                "출력 규칙을 반드시 지키세요.\n"
+                "- 서론, 요약, 제목, 마크다운 헤딩을 쓰지 마세요.\n"
+                "- 정확히 6줄만 작성하세요.\n"
+                "- 각 줄은 '1. 실행 작업' 형식의 바로 실행 가능한 한 문장으로 작성하세요.\n"
+                "- 줄마다 구체적인 산출물이나 연습 대상을 포함하세요.\n"
                 f"부족 역량: {missing}\n"
                 f"기존 갭 요약: {state['gap_summaries'][:3]}"
             )

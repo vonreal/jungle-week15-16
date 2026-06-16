@@ -293,7 +293,15 @@ function textToCards(text = "", fallbackTitle = "추천 항목") {
 function textToActions(text = "") {
   const lines = String(text)
     .split(/\n+/)
-    .map((line) => line.replace(/^[-*•\d.\s]+/, "").trim())
+    .map((line) =>
+      line
+        .replace(/^#{1,6}\s*/, "")
+        .replace(/^[-*•\d.)\s]+/, "")
+        .trim(),
+    )
+    .filter((line) => !/^(요약|정리|액션\s*플랜|실행\s*계획)$/i.test(line))
+    .filter((line) => !/(액션\s*플랜입니다|작성했습니다|다음과 같습니다|아래는)/.test(line))
+    .filter((line) => !/(역량\s*강화\s*액션\s*플랜|보완하기 위한\s*\d+\s*단계)/.test(line))
     .filter(Boolean);
   return (lines.length ? lines : [String(text).trim()].filter(Boolean)).slice(0, 6).map((line, index) => ({
     icon: ["1", "2", "3", "4", "5", "6"][index] ?? String(index + 1),
