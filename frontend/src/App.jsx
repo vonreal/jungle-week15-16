@@ -1201,6 +1201,7 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
   const [saveMessage, setSaveMessage] = useState("");
   const [uploadState, setUploadState] = useState("idle");
   const [uploadMessage, setUploadMessage] = useState("");
+  const [showAllExperiences, setShowAllExperiences] = useState(false);
   const resumeInputRef = useRef(null);
   const portfolioInputRef = useRef(null);
   const experienceCounts = data.experiences.reduce((counts, item) => {
@@ -1209,6 +1210,7 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
     return counts;
   }, {});
   const documentNames = new Map(data.documents.map((document) => [document.id, document.file_name]));
+  const visibleExperiences = showAllExperiences ? data.experiences : data.experiences.slice(0, 5);
   useEffect(() => {
     const nextCats = Object.keys(sourceSkills);
     setSkills(sourceSkills);
@@ -1393,8 +1395,19 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
           </div>
           {data.experiences.length ? (
             <div className="experience-preview">
-              <div className="card-title card-title-spaced">최근 추출 경험</div>
-              {data.experiences.slice(0, 5).map((experience) => (
+              <div className="card-title-row">
+                <div className="card-title">추출 경험 {data.experiences.length}개</div>
+                {data.experiences.length > 5 && (
+                  <button
+                    className="text-action"
+                    onClick={() => setShowAllExperiences((next) => !next)}
+                    type="button"
+                  >
+                    {showAllExperiences ? "5개만 보기" : `전체 ${data.experiences.length}개 보기`}
+                  </button>
+                )}
+              </div>
+              {visibleExperiences.map((experience) => (
                 <div key={experience.id} className="experience-preview-row">
                   <strong>{experience.content}</strong>
                   <span>{documentNames.get(experience.document_id) ?? "문서 없음"}</span>
