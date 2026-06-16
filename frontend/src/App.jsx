@@ -65,9 +65,12 @@ const SKILL_OPTS = [
   "Python",
   "JavaScript/TypeScript",
   "SQL",
+  "Flutter",
   "API 설계",
   "데이터 모델링",
   "UI 컴포넌트 설계",
+  "모바일 앱 아키텍처",
+  "앱 성능 최적화",
   "RAG 설계",
   "CI/CD",
   "클라우드 배포",
@@ -88,6 +91,15 @@ function userInitial(name) {
 }
 
 const RELATED_SKILLS = {
+  flutter: ["모바일", "모바일 앱 아키텍처", "ui 컴포넌트 설계", "상태 관리"],
+  ios: ["모바일", "flutter", "모바일 앱 아키텍처"],
+  android: ["모바일", "flutter", "모바일 앱 아키텍처"],
+  gitlab: ["git 협업", "ci/cd", "운영/협업"],
+  websocket: ["실시간 통신", "네트워크", "api 설계"],
+  webrtc: ["실시간 통신", "네트워크", "api 설계"],
+  "모바일 앱 아키텍처": ["flutter", "ios", "android", "ui 컴포넌트 설계", "상태 관리"],
+  "앱 성능 최적화": ["모바일 앱 아키텍처", "모니터링/장애 대응", "접근성/반응형"],
+  "자동화 테스트": ["테스트 자동화", "ci/cd"],
   "spring boot": ["spring", "java", "api 설계"],
   spring: ["spring boot", "java", "api 설계"],
   jpa: ["java", "데이터 모델링", "데이터베이스 기초"],
@@ -129,6 +141,12 @@ function scoreRequirement(requirement, userSkills = []) {
   let kind = "none";
   let matchedSkill = null;
   const related = RELATED_SKILLS[reqName] ?? [];
+  const catalogNames = new Set(
+    userSkills
+      .map((item) => normalizeSkillName(item.skill?.name))
+      .filter(Boolean)
+  );
+  const hasCatalogMatch = catalogNames.has(reqName) || related.some((name) => catalogNames.has(normalizeSkillName(name)));
 
   userSkills.forEach((item) => {
     const skillName = normalizeSkillName(item.skill?.name);
@@ -162,10 +180,11 @@ function scoreRequirement(requirement, userSkills = []) {
 
   return {
     value: best,
-    kind,
+    kind: kind === "none" && !hasCatalogMatch ? "untracked" : kind,
     matchedSkillName: matchedSkill?.skill?.name ?? null,
     userLevel: matchedSkill?.level ?? 0,
     targetLevel,
+    hasCatalogMatch,
   };
 }
 
@@ -1855,6 +1874,7 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
   const relationLabel = {
     direct: "직접 일치",
     related: "연관 반영",
+    untracked: "스탯 항목 없음",
     none: "미보유",
   };
   const reanalyze = async (target = analysis) => {
@@ -2082,7 +2102,7 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
                     <span className={`score-kind ${item.kind}`}>{relationLabel[item.kind] ?? "미보유"}</span>
                   </div>
                   <div className="score-detail-meta">
-                    JD 최적 스탯: {LV_LABELS[item.targetLevel - 1]} · 내 스탯: {item.matchedSkillName ? `${item.matchedSkillName} ${LV_LABELS[item.userLevel - 1]}` : "매칭 없음"}
+                    JD 최적 스탯: {LV_LABELS[item.targetLevel - 1]} · 내 스탯: {item.matchedSkillName ? `${item.matchedSkillName} ${LV_LABELS[item.userLevel - 1]}` : item.kind === "untracked" ? "스탯 카탈로그에 아직 없는 항목" : "매칭 없음"}
                   </div>
                   <div className="score-bar" aria-hidden="true">
                     <div className="score-bar-fill" style={{ width: `${item.contribution}%` }} />

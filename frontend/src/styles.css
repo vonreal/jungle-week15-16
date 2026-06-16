@@ -260,6 +260,7 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .score-kind { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; border: 1px solid var(--border); }
 .score-kind.direct { color: var(--purple); background: var(--purple-l); border-color: var(--purple-m); }
 .score-kind.related { color: var(--blue); background: var(--blue-l); border-color: var(--blue-m); }
+.score-kind.untracked { color: var(--amber); background: var(--amber-l); border-color: var(--amber-m); }
 .score-kind.none { color: var(--text3); background: var(--surface); border-color: var(--border-s); }
 .score-detail-meta { margin-top: 4px; font-size: 12px; line-height: 1.45; color: var(--text2); }
 .score-bar { height: 6px; margin-top: 9px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
