@@ -14,6 +14,9 @@ const ERROR_TRANSLATIONS = new Map([
   ["source_url is required", "채용공고 링크를 입력해주세요."],
   ["raw_text is required", "채용공고 내용을 입력해주세요."],
   ["JD not found", "채용공고를 찾을 수 없습니다."],
+  ["채용공고 링크를 입력해주세요.", "채용공고 링크를 입력해주세요."],
+  ["채용공고 내용을 입력해주세요.", "채용공고 내용을 입력해주세요."],
+  ["채용공고를 찾을 수 없습니다.", "채용공고를 찾을 수 없습니다."],
 ]);
 
 function translateErrorMessage(message, fallback = "요청 처리에 실패했습니다.") {
@@ -100,4 +103,11 @@ export const skillsApi = {
   list: () => apiFetch("/skills"),
   mySkills: () => apiFetch("/skills/me"),
   updateMySkills: (payload) => apiFetch("/skills/me", { method: "PUT", body: JSON.stringify(payload) }),
+};
+
+export const jdApi = {
+  list: () => apiFetch("/jd"),
+  analyses: () => apiFetch("/jd/analyses"),
+  create: (payload) => apiFetch("/jd", { method: "POST", body: JSON.stringify(payload) }),
+  analyze: (jdId) => apiFetch(`/jd/${jdId}/analyze`, { method: "POST" }),
 };

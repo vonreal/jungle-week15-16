@@ -28,7 +28,7 @@ import {
 import Chip from "./components/Chip.jsx";
 import LevelPip from "./components/LevelPip.jsx";
 import RadarChart from "./components/RadarChart.jsx";
-import { authApi, postsApi, skillsApi } from "./api/client.js";
+import { authApi, jdApi, postsApi, skillsApi } from "./api/client.js";
 
 const NAV_ICONS = {
   dashboard: Home,
@@ -148,13 +148,51 @@ function buildRadar(userSkills = []) {
   }));
 }
 
-function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage = null, drafts = [], applications = []) {
+function normalizeAnalysis(analysis, userSkills = []) {
+  if (!analysis) return EMPTY_DATA.analysis;
+  const requirements = analysis.requirements ?? [];
+  const userSkillNames = new Set(userSkills.map((item) => item.skill?.name).filter(Boolean));
+  const matchedCount = requirements.filter((item) => userSkillNames.has(item.skill_name)).length;
+  const score = requirements.length ? Math.round((matchedCount / requirements.length) * 100) : 0;
+  const missingRequirements = requirements.filter((item) => !userSkillNames.has(item.skill_name));
+  const classifications = analysis.classifications ?? [];
+  return {
+    title: analysis.jd_title,
+    company: analysis.jd_company,
+    score,
+    createdAt: formatDateTime(analysis.created_at),
+    requirements: requirements.map((item) => `${item.skill_name} · ${item.importance === "required" ? "필수" : "우대"}`),
+    experiences: classifications.map((item) => ({
+      type: item.classification === "essential" ? "required" : item.classification,
+      text: item.experience_content || item.reason || "경험 내용 없음",
+    })),
+    gaps: missingRequirements.slice(0, 6).map((item, index) => ({
+      name: item.skill_name,
+      icon: String(index + 1),
+    })),
+    gapSummary: analysis.gap_summary,
+  };
+}
+
+function buildRecentJds(analyses = [], userSkills = []) {
+  return analyses.slice(0, 4).map((analysis, index) => ({
+    co: analysis.jd_company || "회사 미입력",
+    role: analysis.jd_title,
+    date: formatDateTime(analysis.created_at),
+    match: normalizeAnalysis(analysis, userSkills).score,
+    dot: ["var(--blue)", "var(--purple)", "var(--green)", "var(--amber)"][index % 4],
+  }));
+}
+
+function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage = null, drafts = [], applications = [], analyses = []) {
   const base = {
     ...EMPTY_DATA,
     source: state?.source ?? "empty",
     skillCatalog,
     skills: buildSkillsByCategory(skillCatalog, userSkills),
     radar: buildRadar(userSkills),
+    recentJds: buildRecentJds(analyses, userSkills),
+    analysis: normalizeAnalysis(analyses[0], userSkills),
     posts: postsPage?.items ?? [],
     drafts,
     applications,
@@ -187,14 +225,15 @@ function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage 
 }
 
 async function fetchAppState(currentUser = null) {
-  const [skillCatalog, userSkills, postsPage, drafts, applications] = await Promise.all([
+  const [skillCatalog, userSkills, postsPage, drafts, applications, analyses] = await Promise.all([
     skillsApi.list(),
     currentUser ? skillsApi.mySkills() : Promise.resolve([]),
     postsApi.list({ page: 1, size: 50 }),
     currentUser ? postsApi.drafts() : Promise.resolve([]),
     currentUser ? postsApi.myApplications() : Promise.resolve([]),
+    currentUser ? jdApi.analyses() : Promise.resolve([]),
   ]);
-  return normalizeAppState(null, skillCatalog, userSkills, postsPage, drafts, applications);
+  return normalizeAppState(null, skillCatalog, userSkills, postsPage, drafts, applications, analyses);
 }
 
 function formatDateTime(value) {
@@ -1077,10 +1116,54 @@ function StatsViewScreen({ go, data }) {
   );
 }
 
-function JDInputScreen({ go, requireAuth, notifyUnavailable }) {
+function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed }) {
   const [tab, setTab] = useState("link");
+  const [title, setTitle] = useState("");
+  const [company, setCompany] = useState("");
   const [link, setLink] = useState("");
   const [text, setText] = useState("");
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState("");
+  const isAnalyzing = status === "saving";
+  const analyze = async () => {
+    if (!requireAuth("JD 분석 실행은 로그인 후 사용할 수 있습니다.")) return;
+    const nextTitle = title.trim();
+    const nextCompany = company.trim();
+    const nextLink = link.trim();
+    const nextText = text.trim();
+    if (!nextTitle) {
+      setError("채용공고 제목을 입력해주세요.");
+      return;
+    }
+    if (tab === "link" && !nextLink) {
+      setError("채용공고 링크를 입력해주세요.");
+      return;
+    }
+    if (tab === "text" && !nextText) {
+      setError("채용공고 내용을 입력해주세요.");
+      return;
+    }
+    if (tab === "image") {
+      notifyUnavailable("이미지 OCR은 다음 단계에서 실제 업로드와 함께 연결하겠습니다.");
+      return;
+    }
+    setStatus("saving");
+    setError("");
+    try {
+      const jd = await jdApi.create({
+        title: nextTitle,
+        company: nextCompany || null,
+        source_url: tab === "link" ? nextLink : null,
+        raw_text: tab === "text" ? nextText : null,
+        input_type: tab,
+      });
+      await jdApi.analyze(jd.id);
+      await onAnalyzed();
+    } catch (event) {
+      setError(event.message || "JD 분석에 실패했습니다.");
+      setStatus("idle");
+    }
+  };
 
   return (
     <div className="screen">
@@ -1104,6 +1187,32 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable }) {
         </div>
 
         <div className="card">
+          <div className="form-stack jd-meta-form">
+            <div>
+              <label className="field-lbl" htmlFor="jd-title">채용공고 제목</label>
+              <input
+                id="jd-title"
+                className="input"
+                value={title}
+                onChange={(event) => {
+                  setTitle(event.target.value);
+                  setError("");
+                }}
+                placeholder="예: 백엔드 개발자"
+              />
+            </div>
+            <div>
+              <label className="field-lbl" htmlFor="jd-company">회사명 <span className="field-optional">(선택)</span></label>
+              <input
+                id="jd-company"
+                className="input"
+                value={company}
+                onChange={(event) => setCompany(event.target.value)}
+                placeholder="예: 네이버"
+              />
+            </div>
+          </div>
+
           {tab === "link" && (
             <div className="form-stack">
               <div>
@@ -1114,7 +1223,10 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable }) {
                   id="jd-link"
                   className="input"
                   value={link}
-                  onChange={(event) => setLink(event.target.value)}
+                  onChange={(event) => {
+                    setLink(event.target.value);
+                    setError("");
+                  }}
                   placeholder="https://careers.kakao.com/jobs/..."
                 />
               </div>
@@ -1140,7 +1252,10 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable }) {
                 id="jd-text"
                 className="input"
                 value={text}
-                onChange={(event) => setText(event.target.value)}
+                onChange={(event) => {
+                  setText(event.target.value);
+                  setError("");
+                }}
                 rows={12}
                 placeholder="채용공고 내용을 붙여넣기 하세요"
               />
@@ -1164,12 +1279,13 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable }) {
           )}
 
           <div className="analyze-footer">
-            <span>AI가 JD를 분석하여 매칭 결과를 제공합니다</span>
-            <button className="btn btn-primary btn-lg" onClick={() => requireAuth("JD 분석 실행은 로그인 후 사용할 수 있습니다.") && go("analysis")} type="button">
-              분석 시작
+            <span>{isAnalyzing ? "JD 저장, RAG 검색, 갭 분석을 실행하는 중입니다" : "AI가 JD를 분석하여 매칭 결과를 제공합니다"}</span>
+            <button className="btn btn-primary btn-lg" onClick={analyze} disabled={isAnalyzing} type="button">
+              {isAnalyzing ? "분석 중" : "분석 시작"}
               <Icon icon={ArrowRight} />
             </button>
           </div>
+          {error && <div className="auth-error">{error}</div>}
         </div>
       </div>
     </div>
@@ -1197,7 +1313,7 @@ function AnalysisScreen({ go, data }) {
         <div className="card">
           <EmptyState
             title="분석 대기 중"
-            description="현재는 저장된 JD 분석 데이터가 없습니다. 분석 실행 기능은 4단계에서 RAG/MCP와 함께 연결할 예정입니다."
+            description="JD 입력 화면에서 채용공고를 저장하고 분석을 실행하면 결과가 표시됩니다."
             action={
               <button className="btn btn-primary btn-sm" onClick={() => go("jdinput")} type="button">
                 JD 입력으로 이동
@@ -1270,6 +1386,7 @@ function AnalysisScreen({ go, data }) {
         <div className="card">
           <div className="card-title">갭 파악 결과</div>
           <p className="card-sub">합격을 위해 보완이 필요한 핵심 역량</p>
+          {analysis.gapSummary && <div className="analysis-summary">{analysis.gapSummary}</div>}
           <div className="gap-grid">
             {analysis.gaps.map((gap) => (
               <div key={gap.name} className="gap-box">
@@ -2520,6 +2637,10 @@ export default function App() {
     }));
     await reloadAppData(currentUser, { label, tone: "ok" });
   };
+  const handleAnalysisCreated = async () => {
+    await reloadAppData(currentUser, { label: "JD 분석 완료", tone: "ok" });
+    setScreen("analysis");
+  };
   const handleProfileUpdated = async (updatedUser) => {
     setCurrentUser(updatedUser);
     await reloadAppData(updatedUser, { label: "프로필 저장됨", tone: "ok" });
@@ -2589,7 +2710,7 @@ export default function App() {
         notifyUnavailable={notifyUnavailable}
       />
     ),
-    jdinput: <JDInputScreen go={go} requireAuth={requireAuth} notifyUnavailable={notifyUnavailable} />,
+    jdinput: <JDInputScreen go={go} requireAuth={requireAuth} notifyUnavailable={notifyUnavailable} onAnalyzed={handleAnalysisCreated} />,
     analysis: <AnalysisScreen go={go} data={appData} />,
     portfolio: <PortfolioScreen data={appData} />,
     posts: <PostListScreen go={go} data={appData} onSelectPost={openPost} />,

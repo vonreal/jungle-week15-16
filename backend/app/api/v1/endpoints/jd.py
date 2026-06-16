@@ -126,13 +126,23 @@ async def analyze_jd(
         class_models.append(model)
 
     await session.commit()
-    for item in [analysis, *req_models, *class_models]:
-        await session.refresh(item)
+    loaded_analysis_result = await session.execute(
+        select(JDAnalysis)
+        .where(JDAnalysis.id == analysis.id)
+        .options(
+            selectinload(JDAnalysis.classifications).selectinload(ExperienceClassification.experience),
+            selectinload(JDAnalysis.jd),
+        )
+    )
+    loaded_analysis = loaded_analysis_result.scalar_one()
+    req_result = await session.execute(
+        select(JDRequirement).where(JDRequirement.jd_id == loaded_analysis.jd_id)
+    )
 
     return {
-        **JDAnalysisRead.model_validate(analysis).model_dump(),
-        "requirements": req_models,
-        "classifications": class_models,
+        **JDAnalysisRead.model_validate(loaded_analysis).model_dump(),
+        "requirements": list(req_result.scalars().all()),
+        "classifications": list(loaded_analysis.classifications),
     }
 
 
@@ -141,7 +151,10 @@ async def list_analyses(session: SessionDep, current_user: CurrentUser) -> list[
     result = await session.execute(
         select(JDAnalysis)
         .where(JDAnalysis.user_id == current_user.id)
-        .options(selectinload(JDAnalysis.classifications), selectinload(JDAnalysis.jd))
+        .options(
+            selectinload(JDAnalysis.classifications).selectinload(ExperienceClassification.experience),
+            selectinload(JDAnalysis.jd),
+        )
         .order_by(JDAnalysis.created_at.desc())
     )
     analyses = result.scalars().unique().all()

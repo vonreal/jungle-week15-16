@@ -41,6 +41,7 @@ class ExperienceClassificationRead(BaseModel):
 
     id: int
     experience_id: uuid.UUID
+    experience_content: str
     classification: str
     reason: str | None
 
@@ -51,8 +52,9 @@ class JDAnalysisRead(BaseModel):
     id: uuid.UUID
     jd_id: uuid.UUID
     user_id: uuid.UUID
+    jd_title: str
+    jd_company: str | None
     gap_summary: str
     created_at: datetime
     requirements: list[JDRequirementRead] = []
     classifications: list[ExperienceClassificationRead] = []
-

@@ -148,6 +148,14 @@ class JDAnalysis(UUIDPrimaryKeyMixin, Base):
         cascade="all, delete-orphan",
     )
 
+    @property
+    def jd_title(self) -> str:
+        return self.jd.title if self.jd is not None else "채용공고"
+
+    @property
+    def jd_company(self) -> str | None:
+        return self.jd.company if self.jd is not None else None
+
 
 class JDRequirement(Base):
     __tablename__ = "jd_requirements"
@@ -182,6 +190,10 @@ class ExperienceClassification(Base):
 
     analysis: Mapped[JDAnalysis] = relationship(back_populates="classifications")
     experience: Mapped[UserExperience] = relationship()
+
+    @property
+    def experience_content(self) -> str:
+        return self.experience.content if self.experience is not None else ""
 
 
 class PortfolioRecommendation(UUIDPrimaryKeyMixin, Base):
