@@ -121,14 +121,17 @@ function normalizeSkillName(value = "") {
 
 function scoreRequirement(requirement, userSkills = []) {
   const reqName = normalizeSkillName(requirement.skill_name);
+  const targetLevel = requirement.importance === "required" ? 4 : 3;
   let best = 0;
   let kind = "none";
+  let matchedSkill = null;
   const related = RELATED_SKILLS[reqName] ?? [];
 
   userSkills.forEach((item) => {
     const skillName = normalizeSkillName(item.skill?.name);
     const categoryName = normalizeSkillName(item.skill?.category);
-    const levelFactor = Math.max(1, Number(item.level) || 1) / 4;
+    const userLevel = Math.max(1, Number(item.level) || 1);
+    const levelFactor = Math.min(1, userLevel / targetLevel);
     let confidence = 0;
     let nextKind = "none";
 
@@ -150,10 +153,17 @@ function scoreRequirement(requirement, userSkills = []) {
     if (weighted > best) {
       best = weighted;
       kind = nextKind;
+      matchedSkill = item;
     }
   });
 
-  return { value: best, kind };
+  return {
+    value: best,
+    kind,
+    matchedSkillName: matchedSkill?.skill?.name ?? null,
+    userLevel: matchedSkill?.level ?? 0,
+    targetLevel,
+  };
 }
 
 function renderMarkdownInline(text) {
@@ -273,6 +283,18 @@ function normalizeAnalysis(analysis, userSkills = []) {
   const directCount = requirementScores.filter((item) => item.kind === "direct").length;
   const relatedCount = requirementScores.filter((item) => item.kind === "related").length;
   const missingRequirements = requirements.filter((_, index) => requirementScores[index]?.value < 0.7);
+  const scoreDetails = requirements.map((item, index) => {
+    const result = requirementScores[index] ?? { value: 0, kind: "none", userLevel: 0, targetLevel: 4 };
+    return {
+      name: item.skill_name,
+      importance: item.importance,
+      targetLevel: result.targetLevel,
+      userLevel: result.userLevel,
+      matchedSkillName: result.matchedSkillName,
+      kind: result.kind,
+      contribution: Math.round(result.value * 100),
+    };
+  });
   const classifications = analysis.classifications ?? [];
   return {
     id: analysis.id,
@@ -293,6 +315,7 @@ function normalizeAnalysis(analysis, userSkills = []) {
     scoreHint: requirements.length
       ? `직접 ${directCount}개 · 연관 ${relatedCount}개 / 요구 ${requirements.length}개`
       : "요구사항 추출 전",
+    scoreDetails,
   };
 }
 
@@ -1445,6 +1468,11 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
     required: experiences.filter((item) => item.type === "required").length,
     unrelated: experiences.filter((item) => item.type === "unrelated").length,
   };
+  const relationLabel = {
+    direct: "직접 일치",
+    related: "연관 반영",
+    none: "미보유",
+  };
   const deleteAnalysis = async () => {
     if (!deleteTarget?.id) return;
     setIsDeletingAnalysis(true);
@@ -1542,6 +1570,30 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
               <div key={req} className="req-item">
                 <div className="req-num">{i + 1}</div>
                 <span>{req}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">스코어 근거 · JD 최적 스탯 비교</div>
+          <p className="card-sub">필수 요구사항은 운영 가능, 우대 요구사항은 원리 이해 수준을 목표로 계산합니다</p>
+          <div className="score-detail-list">
+            {(analysis.scoreDetails ?? []).map((item) => (
+              <div key={`${analysis.id}-${item.name}`} className="score-detail-row">
+                <div className="score-detail-main">
+                  <div className="score-detail-head">
+                    <strong>{item.name}</strong>
+                    <span className={`score-kind ${item.kind}`}>{relationLabel[item.kind] ?? "미보유"}</span>
+                  </div>
+                  <div className="score-detail-meta">
+                    JD 최적 스탯: {LV_LABELS[item.targetLevel - 1]} · 내 스탯: {item.matchedSkillName ? `${item.matchedSkillName} ${LV_LABELS[item.userLevel - 1]}` : "매칭 없음"}
+                  </div>
+                  <div className="score-bar" aria-hidden="true">
+                    <div className="score-bar-fill" style={{ width: `${item.contribution}%` }} />
+                  </div>
+                </div>
+                <div className="score-detail-pct">{item.contribution}%</div>
               </div>
             ))}
           </div>

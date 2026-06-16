@@ -207,6 +207,19 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .req-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
 .req-item { display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; background: var(--bg); border-radius: 8px; border: 1px solid var(--border); font-size: 13px; line-height: 1.5; }
 .req-num { width: 20px; height: 20px; border-radius: 5px; background: var(--blue-l); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--blue); flex-shrink: 0; margin-top: 1px; }
+.score-detail-list { display: flex; flex-direction: column; gap: 8px; }
+.score-detail-row { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); }
+.score-detail-main { flex: 1; min-width: 0; }
+.score-detail-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.score-detail-head strong { font-size: 13.5px; color: var(--text); }
+.score-kind { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; border: 1px solid var(--border); }
+.score-kind.direct { color: var(--purple); background: var(--purple-l); border-color: var(--purple-m); }
+.score-kind.related { color: var(--blue); background: var(--blue-l); border-color: var(--blue-m); }
+.score-kind.none { color: var(--text3); background: var(--surface); border-color: var(--border-s); }
+.score-detail-meta { margin-top: 4px; font-size: 12px; line-height: 1.45; color: var(--text2); }
+.score-bar { height: 6px; margin-top: 9px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
+.score-bar-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--blue), var(--purple)); }
+.score-detail-pct { width: 48px; text-align: right; color: var(--purple); font-size: 16px; font-weight: 900; flex-shrink: 0; }
 .legend-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
 .exp-legend { display: flex; gap: 14px; }
 .legend-dot-row { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
