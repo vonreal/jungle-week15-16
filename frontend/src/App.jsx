@@ -76,15 +76,15 @@ const SKILL_OPTS = [
   "클라우드 배포",
 ];
 
-const JD_QUICK_LINKS = {
-  카카오: "https://careers.kakao.com",
-  네이버: "https://recruit.navercorp.com",
-  라인: "https://careers.linecorp.com",
-  토스: "https://toss.im/career",
-  당근마켓: "https://about.daangn.com/jobs",
-  쿠팡: "https://www.coupang.jobs/kr",
-  배민: "https://career.woowahan.com",
-};
+const JD_QUICK_LINKS = [
+  { company: "카카오", url: "https://careers.kakao.com" },
+  { company: "네이버", url: "https://recruit.navercorp.com" },
+  { company: "라인", url: "https://careers.linecorp.com" },
+  { company: "토스", url: "https://toss.im/career" },
+  { company: "당근마켓", url: "https://about.daangn.com/jobs" },
+  { company: "쿠팡", url: "https://www.coupang.jobs/kr" },
+  { company: "배민", url: "https://career.woowahan.com" },
+];
 
 function userInitial(name) {
   return (name || "C").trim().slice(0, 1).toUpperCase();
@@ -2048,11 +2048,20 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed, setGlob
                 />
               </div>
               <div>
-                <div className="field-lbl">빠른 선택</div>
+                <div className="field-lbl">회사 빠른 선택</div>
                 <div className="quick-pills">
-                  {Object.keys(JD_QUICK_LINKS).map((name) => (
-                    <button key={name} className="quick-pill" onClick={() => setLink(JD_QUICK_LINKS[name])} type="button">
-                      {name}
+                  {JD_QUICK_LINKS.map((item) => (
+                    <button
+                      key={item.company}
+                      className="quick-pill"
+                      onClick={() => {
+                        setCompany(item.company);
+                        setLink(item.url);
+                        setError("");
+                      }}
+                      type="button"
+                    >
+                      {item.company}
                     </button>
                   ))}
                 </div>
