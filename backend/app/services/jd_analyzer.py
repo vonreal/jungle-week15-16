@@ -19,9 +19,20 @@ CORE_KEYWORDS = [
     "FastAPI",
     "React",
     "Java",
+    "Kotlin",
     "Python",
     "JavaScript",
     "TypeScript",
+    "백엔드 아키텍처",
+    "LLM/GenAI",
+    "AI 인프라",
+    "Inference 최적화",
+    "MLOps",
+    "vLLM",
+    "TensorRT",
+    "Triton Inference Server",
+    "PyTorch",
+    "TensorFlow",
     "PostgreSQL",
     "MySQL",
     "Redis",
@@ -45,16 +56,27 @@ REQUIREMENT_ALIASES = {
     "iOS": ["ios"],
     "Android": ["android", "안드로이드"],
     "모바일 앱 아키텍처": ["앱 아키텍처", "모바일 앱 구조", "앱 구조", "확장성과 유지보수"],
-    "앱 성능 최적화": ["앱 성능", "성능 개선", "성능 최적화", "모바일 앱 최적화"],
+    "앱 성능 최적화": ["앱 성능", "모바일 앱 성능", "모바일 앱 최적화"],
     "자동화 테스트": ["자동화 테스트", "테스트 작성", "테스트 자동화"],
     "Spring Boot": ["spring boot", "스프링 부트"],
     "Spring": ["spring", "스프링"],
     "FastAPI": ["fastapi", "fast api"],
     "React": ["react", "리액트"],
     "Java": ["java", "자바"],
+    "Kotlin": ["kotlin", "코틀린"],
     "Python": ["python", "파이썬"],
     "JavaScript": ["javascript", "java script", "자바스크립트"],
     "TypeScript": ["typescript", "type script", "타입스크립트"],
+    "백엔드 아키텍처": ["백엔드 아키텍처", "백엔드 설계", "시스템 아키텍처", "서비스 시스템 개발"],
+    "LLM/GenAI": ["llm", "genai", "생성형 ai", "지능형 채팅", "챗봇", "agent"],
+    "AI 인프라": ["ai 인프라", "ai 모델", "모델 서빙", "로컬 모델", "클라우드 모델"],
+    "Inference 최적화": ["inference", "추론", "서빙 시스템", "응답 속도", "성능 개선", "성능 최적화"],
+    "MLOps": ["mlops", "kubeflow", "mlflow"],
+    "vLLM": ["vllm"],
+    "TensorRT": ["tensorrt"],
+    "Triton Inference Server": ["triton inference server", "triton"],
+    "PyTorch": ["pytorch"],
+    "TensorFlow": ["tensorflow"],
     "PostgreSQL": ["postgresql", "postgres", "포스트그레스"],
     "MySQL": ["mysql", "마이sql"],
     "Redis": ["redis", "레디스"],
@@ -121,6 +143,18 @@ class JDAnalyzerService:
         aliases = REQUIREMENT_ALIASES.get(keyword, [keyword.lower()])
         indexes = [lower.find(alias) for alias in aliases if lower.find(alias) >= 0]
         idx = min(indexes) if indexes else lower.find(keyword.lower())
+        before = text[:idx]
+        last_required_section = max(
+            before.rfind(token)
+            for token in ["필요 역량", "필요역량", "자격 요건", "자격요건", "지원 자격", "지원자격"]
+        )
+        last_preferred_section = max(
+            before.rfind(token)
+            for token in ["우대 사항", "우대사항", "사용 중인 기술스택", "사용 중인 기술 스택"]
+        )
+        if last_required_section >= 0 or last_preferred_section >= 0:
+            return last_required_section > last_preferred_section
+
         window = text[max(0, idx - 80) : idx + len(keyword) + 80]
         return any(token in window for token in ["필수", "자격", "required", "must", "주요 업무"])
 
@@ -129,12 +163,15 @@ class JDAnalyzerService:
         return any(alias in normalized_text for alias in aliases)
 
     def _requirement_scope(self, raw_text: str) -> str:
-        start_match = re.search(r"(주요\s*업무|자격\s*요건|지원\s*자격|사용\s*중인\s*기술\s*스택)", raw_text)
+        start_match = re.search(
+            r"(담당\s*업무|주요\s*업무|필요\s*역량|자격\s*요건|지원\s*자격|사용\s*중인\s*기술\s*스택)",
+            raw_text,
+        )
         if not start_match:
             return raw_text
 
         scoped = raw_text[start_match.start() :]
-        end_match = re.search(r"(혜택\s*및\s*복지|채용\s*전형|전형\s*절차|복지|기타\s*사항)", scoped)
+        end_match = re.search(r"(전형\s*절차|혜택\s*및\s*복지|채용\s*전형|복지|기타\s*사항)", scoped)
         if end_match:
             scoped = scoped[: end_match.start()]
         return scoped

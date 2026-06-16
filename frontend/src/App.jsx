@@ -2432,11 +2432,9 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
             포트폴리오 추천
             <Icon icon={ArrowRight} size={14} />
           </button>
-          {analysis.needsReanalysis && (
-            <button className="btn btn-primary btn-sm" onClick={() => reanalyze(analysis)} type="button">
-              업데이트 정보로 재분석
-            </button>
-          )}
+          <button className="btn btn-secondary btn-sm" onClick={() => reanalyze(analysis)} type="button">
+            {analysis.needsReanalysis ? "업데이트 정보로 재분석" : "다시 분석"}
+          </button>
         </div>
       </div>
 
