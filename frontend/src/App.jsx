@@ -1860,19 +1860,28 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
   const [selectedAnalysisId, setSelectedAnalysisId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeletingAnalysis, setIsDeletingAnalysis] = useState(false);
+  const [showUnrelatedExperiences, setShowUnrelatedExperiences] = useState(false);
   useEffect(() => {
     if (!selectedAnalysisId || !analyses.some((item) => item.id === selectedAnalysisId)) {
       setSelectedAnalysisId(null);
     }
   }, [analyses, selectedAnalysisId]);
+  useEffect(() => {
+    setShowUnrelatedExperiences(false);
+  }, [selectedAnalysisId]);
 
   const analysis = analyses.find((item) => item.id === selectedAnalysisId) ?? null;
   const hasAnalysis = analyses.length > 0;
   const experiences = analysis?.experiences ?? [];
+  const relatedExperiences = experiences.filter((item) => item.type !== "unrelated");
+  const unrelatedExperiences = experiences.filter((item) => item.type === "unrelated");
+  const visibleExperiences = showUnrelatedExperiences
+    ? [...relatedExperiences, ...unrelatedExperiences]
+    : relatedExperiences;
   const counts = {
-    core: experiences.filter((item) => item.type === "core").length,
-    required: experiences.filter((item) => item.type === "required").length,
-    unrelated: experiences.filter((item) => item.type === "unrelated").length,
+    core: relatedExperiences.filter((item) => item.type === "core").length,
+    required: relatedExperiences.filter((item) => item.type === "required").length,
+    unrelated: unrelatedExperiences.length,
   };
   const relationLabel = {
     direct: "직접 일치",
@@ -2125,41 +2134,67 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
         <div className="card">
           <div className="legend-head">
             <div className="card-title">내 경험 분류</div>
-            <div className="exp-legend">
-              {[
-                ["핵심", counts.core, "var(--purple)"],
-                ["필수", counts.required, "var(--blue)"],
-                ["비연관", counts.unrelated, "#6B7280"],
-              ].map(([label, count, color]) => (
-                <div key={label} className="legend-dot-row">
-                  <div className="dot" style={{ background: color }} />
-                  <span>
-                    {label} <strong style={{ color }}>{count}</strong>
-                  </span>
-                </div>
-              ))}
+            <div className="experience-filter-actions">
+              <div className="exp-legend">
+                {[
+                  ["핵심", counts.core, "var(--purple)"],
+                  ["필수", counts.required, "var(--blue)"],
+                  ["비연관", counts.unrelated, "#6B7280"],
+                ].map(([label, count, color]) => (
+                  <div key={label} className="legend-dot-row">
+                    <div className="dot" style={{ background: color }} />
+                    <span>
+                      {label} <strong style={{ color }}>{count}</strong>
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {counts.unrelated > 0 && (
+                <button
+                  className={`btn btn-secondary btn-sm unrelated-toggle ${showUnrelatedExperiences ? "active" : ""}`}
+                  onClick={() => setShowUnrelatedExperiences((value) => !value)}
+                  type="button"
+                >
+                  <Icon icon={showUnrelatedExperiences ? EyeOff : Eye} size={13} />
+                  {showUnrelatedExperiences ? "비연관 숨기기" : `비연관 ${counts.unrelated}개 보기`}
+                </button>
+              )}
             </div>
           </div>
           <div className="experience-evidence-list">
             {experiences.length ? (
-              experiences.map((item) => (
-                <div key={item.text} className={`experience-evidence-row ${item.type}`}>
-                  <div className="experience-evidence-head">
-                    <Chip type={item.type}>{experienceTypeLabel[item.type] ?? "분류"}</Chip>
-                    {item.matchedRequirements.length ? (
-                      <div className="matched-requirements">
-                        {item.matchedRequirements.slice(0, 4).map((requirement) => (
-                          <span key={`${item.text}-${requirement}`}>{requirement}</span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="no-match-label">직접 매칭 없음</span>
-                    )}
+              visibleExperiences.length ? (
+                visibleExperiences.map((item) => (
+                  <div key={item.text} className={`experience-evidence-row ${item.type}`}>
+                    <div className="experience-evidence-head">
+                      <Chip type={item.type}>{experienceTypeLabel[item.type] ?? "분류"}</Chip>
+                      {item.matchedRequirements.length ? (
+                        <div className="matched-requirements">
+                          {item.matchedRequirements.slice(0, 4).map((requirement) => (
+                            <span key={`${item.text}-${requirement}`}>{requirement}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="no-match-label">직접 매칭 없음</span>
+                      )}
+                    </div>
+                    <strong>{item.text}</strong>
+                    <p>{item.reason}</p>
                   </div>
-                  <strong>{item.text}</strong>
-                  <p>{item.reason}</p>
-                </div>
-              ))
+                ))
+              ) : (
+                <EmptyState
+                  title="핵심/필수로 분류된 경험이 없습니다"
+                  description="현재 JD 요구사항과 직접 연결된 경험은 없고, 비연관 경험만 접혀 있습니다."
+                  action={
+                    counts.unrelated > 0 && (
+                      <button className="btn btn-secondary btn-sm" onClick={() => setShowUnrelatedExperiences(true)} type="button">
+                        비연관 경험 보기
+                      </button>
+                    )
+                  }
+                />
+              )
             ) : (
               <EmptyState
                 title="분류할 경험이 없습니다"

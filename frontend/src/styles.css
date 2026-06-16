@@ -268,6 +268,9 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .score-detail-pct { width: 48px; text-align: right; color: var(--purple); font-size: 16px; font-weight: 900; flex-shrink: 0; }
 .legend-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
 .exp-legend { display: flex; gap: 14px; }
+.experience-filter-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.unrelated-toggle { white-space: nowrap; }
+.unrelated-toggle.active { background: var(--surface); color: var(--text); }
 .legend-dot-row { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
 .dot { width: 8px; height: 8px; border-radius: 50%; }
 .chip-cloud { line-height: 2; }
