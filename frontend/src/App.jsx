@@ -199,12 +199,9 @@ async function fetchAppState(currentUser = null) {
 
 function formatDateTime(value) {
   if (!value) return "방금 전";
-  return new Intl.DateTimeFormat("ko-KR", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
+  const date = new Date(value);
+  const pad = (number) => String(number).padStart(2, "0");
+  return `${pad(date.getFullYear() % 100)}.${pad(date.getMonth() + 1)}.${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function postTagNames(post) {
