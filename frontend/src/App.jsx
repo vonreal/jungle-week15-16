@@ -1566,11 +1566,23 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
             </div>
           </div>
           <div className="chip-cloud">
-            {experiences.map((item) => (
-              <Chip key={item.text} type={item.type}>
-                {item.text}
-              </Chip>
-            ))}
+            {experiences.length ? (
+              experiences.map((item) => (
+                <Chip key={item.text} type={item.type}>
+                  {item.text}
+                </Chip>
+              ))
+            ) : (
+              <EmptyState
+                title="분류할 경험이 없습니다"
+                description="이력서나 포트폴리오에서 추출된 경험이 없어서 JD와 비교할 항목이 없습니다."
+                action={
+                  <button className="btn btn-secondary btn-sm" onClick={() => go("stats")} type="button">
+                    이력서 업로드로 이동
+                  </button>
+                }
+              />
+            )}
           </div>
         </div>
 
