@@ -17,6 +17,13 @@ class UserSkillUpsert(BaseModel):
     level: int = Field(ge=1, le=4)
 
 
+class UserSkillCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    category: str = Field(min_length=1, max_length=40)
+    level: int = Field(ge=1, le=4)
+    description: str | None = None
+
+
 class UserSkillRead(BaseModel):
     id: int
     skill: SkillRead
@@ -26,4 +33,3 @@ class UserSkillRead(BaseModel):
 class RadarPoint(BaseModel):
     category: str
     score: int
-

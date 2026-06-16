@@ -150,7 +150,7 @@ async def _extract_and_store_skills(
         return
 
     parser = DocumentParserService()
-    for mention in parser.extract_skill_mentions(document.raw_text):
+    for mention in await parser.extract_skill_mentions(document.raw_text):
         skill = await session.scalar(
             select(Skill).where(func.lower(Skill.name) == mention["name"].lower())
         )

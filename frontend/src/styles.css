@@ -179,6 +179,9 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .level-pip { width: 34px; height: 34px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text3); font-size: 13px; font-weight: 700; transition: all .15s; }
 .level-pip:hover { border-color: var(--text3); }
 .skill-lv-label { font-size: 12px; color: var(--text3); text-align: right; white-space: nowrap; }
+.manual-skill-card { display: flex; flex-direction: column; gap: 12px; }
+.manual-skill-form { display: grid; grid-template-columns: 150px minmax(220px, 1fr) 150px auto; gap: 8px; align-items: center; }
+.compact-select { min-width: 0; }
 .save-message { font-size: 12.5px; font-weight: 700; color: var(--text3); }
 .save-message.idle { color: var(--text3); }
 .save-message.saving { color: var(--blue); }
@@ -523,6 +526,7 @@ button:disabled { cursor: not-allowed; opacity: .58; }
   .analyze-footer { align-items: stretch; flex-direction: column; }
   .score-box { text-align: left; }
   .skill-item { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .manual-skill-form { grid-template-columns: minmax(0, 1fr); }
   .skill-lv-label { text-align: left; }
   .sv-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .sv-label { text-align: left; }

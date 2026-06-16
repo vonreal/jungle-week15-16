@@ -103,6 +103,7 @@ export const postsApi = {
 export const skillsApi = {
   list: () => apiFetch("/skills"),
   mySkills: () => apiFetch("/skills/me"),
+  createMySkill: (payload) => apiFetch("/skills/me", { method: "POST", body: JSON.stringify(payload) }),
   updateMySkills: (payload) => apiFetch("/skills/me", { method: "PUT", body: JSON.stringify(payload) }),
 };
 

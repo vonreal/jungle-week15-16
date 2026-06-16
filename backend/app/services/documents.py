@@ -117,11 +117,16 @@ class DocumentParserService:
 
         return self._extract_with_rules(cleaned_text)[:20]
 
-    def extract_skill_mentions(self, raw_text: str | None) -> list[dict[str, str]]:
+    async def extract_skill_mentions(self, raw_text: str | None) -> list[dict[str, str]]:
         if not raw_text:
             return []
 
         cleaned_text = self._remove_reference_sections(raw_text)
+        keyword_mentions = self._extract_skill_mentions_with_keywords(cleaned_text)
+        llm_mentions = await self._extract_skill_mentions_with_llm(cleaned_text)
+        return self._dedupe_skill_mentions([*keyword_mentions, *llm_mentions])
+
+    def _extract_skill_mentions_with_keywords(self, cleaned_text: str) -> list[dict[str, str]]:
         compact_text = re.sub(r"\s+", " ", cleaned_text).lower()
         normalized = f" {compact_text} "
         mentions: list[dict[str, str]] = []
@@ -140,6 +145,30 @@ class DocumentParserService:
                     )
                     seen.add(name.lower())
         return mentions
+
+    async def _extract_skill_mentions_with_llm(self, raw_text: str) -> list[dict[str, str]]:
+        if not settings.openai_api_key:
+            return []
+
+        prompt = (
+            "아래 이력서/포트폴리오 텍스트에서 실제 업무나 프로젝트에 사용된 기술 스택만 추출하세요.\n"
+            "숙련도 기준표, 단순 기술 목록, 연락처, 학력, 회사 소개는 제외하세요.\n"
+            "category는 언어, 백엔드, 프론트엔드, 모바일, AI, 운영/협업 중 하나로 분류하세요.\n"
+            "너무 일반적인 단어(개발, 프로젝트, API, 서버, 데이터)는 제외하세요.\n"
+            "최대 12개만 반환하고 반드시 JSON 배열만 반환하세요.\n"
+            "예: [{\"category\":\"모바일\",\"name\":\"Riverpod\",\"description\":\"문서에서 자동 감지된 기술입니다.\"}]\n\n"
+            f"텍스트:\n{raw_text[:12000]}"
+        )
+
+        try:
+            from langchain_openai import ChatOpenAI
+
+            llm = ChatOpenAI(model=settings.llm_model, api_key=settings.openai_api_key, temperature=0)
+            response = await llm.ainvoke(prompt)
+        except Exception:
+            return []
+
+        return self._parse_skill_mentions_json(str(response.content))
 
     async def _extract_with_llm(self, raw_text: str) -> list[str]:
         if not settings.openai_api_key:
@@ -175,6 +204,36 @@ class DocumentParserService:
         if not isinstance(parsed, list):
             return []
         return self._dedupe_experiences(str(item) for item in parsed)
+
+    def _parse_skill_mentions_json(self, content: str) -> list[dict[str, str]]:
+        match = re.search(r"\[[\s\S]*\]", content)
+        if not match:
+            return []
+        try:
+            parsed = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            return []
+        if not isinstance(parsed, list):
+            return []
+
+        mentions: list[dict[str, str]] = []
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            name = re.sub(r"\s+", " ", str(item.get("name", ""))).strip()
+            category = re.sub(r"\s+", " ", str(item.get("category", ""))).strip()
+            if not self._is_skill_name_candidate(name):
+                continue
+            if category not in {"언어", "백엔드", "프론트엔드", "모바일", "AI", "운영/협업"}:
+                category = "운영/협업"
+            mentions.append(
+                {
+                    "category": category,
+                    "name": name[:120],
+                    "description": "이력서/포트폴리오에서 AI가 자동 감지한 기술입니다. 숙련도를 직접 확인해 조정하세요.",
+                }
+            )
+        return mentions
 
     def _extract_with_rules(self, raw_text: str) -> list[str]:
         lines = [re.sub(r"\s+", " ", line).strip() for line in raw_text.splitlines()]
@@ -264,6 +323,38 @@ class DocumentParserService:
                 )
             )
         return normalized_alias in normalized_text
+
+    def _is_skill_name_candidate(self, name: str) -> bool:
+        if len(name) < 2 or len(name) > 60:
+            return False
+        lowered = name.lower()
+        blocked = {
+            "api",
+            "server",
+            "frontend",
+            "backend",
+            "project",
+            "개발",
+            "서버",
+            "프로젝트",
+            "데이터",
+            "기술",
+        }
+        if lowered in blocked:
+            return False
+        return bool(re.search(r"[A-Za-z가-힣0-9+#./-]", name))
+
+    def _dedupe_skill_mentions(self, mentions: list[dict[str, str]]) -> list[dict[str, str]]:
+        results: list[dict[str, str]] = []
+        seen: set[str] = set()
+        for mention in mentions:
+            name = re.sub(r"\s+", " ", mention["name"]).strip()
+            key = name.lower()
+            if key in seen or not self._is_skill_name_candidate(name):
+                continue
+            seen.add(key)
+            results.append({**mention, "name": name})
+        return results[:20]
 
     def _dedupe_experiences(self, experiences) -> list[str]:
         results: list[str] = []

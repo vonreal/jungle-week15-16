@@ -1222,6 +1222,11 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
   const [saveMessage, setSaveMessage] = useState("");
   const [uploadState, setUploadState] = useState("idle");
   const [uploadMessage, setUploadMessage] = useState("");
+  const [manualSkillName, setManualSkillName] = useState("");
+  const [manualSkillCategory, setManualSkillCategory] = useState(cats[0] ?? "언어");
+  const [manualSkillLevel, setManualSkillLevel] = useState(1);
+  const [manualSkillState, setManualSkillState] = useState("idle");
+  const [manualSkillMessage, setManualSkillMessage] = useState("");
   const [showAllExperiences, setShowAllExperiences] = useState(false);
   const [documentDeleteTarget, setDocumentDeleteTarget] = useState(null);
   const [experienceDeleteTarget, setExperienceDeleteTarget] = useState(null);
@@ -1243,6 +1248,7 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
     const nextCats = Object.keys(sourceSkills);
     setSkills(sourceSkills);
     setCat(nextCats[0] ?? "");
+    setManualSkillCategory((current) => (nextCats.includes(current) ? current : nextCats[0] ?? "언어"));
     setDirty(false);
   }, [sourceSkills]);
   const update = (name, lv) => {
@@ -1296,6 +1302,33 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
     } catch (error) {
       setUploadState("error");
       setUploadMessage(error.message || "파일 업로드에 실패했습니다.");
+    }
+  };
+  const addManualSkill = async () => {
+    if (!requireAuth("스탯 추가는 로그인 후 사용할 수 있습니다.")) return;
+    const name = manualSkillName.trim();
+    const category = manualSkillCategory.trim() || "기타";
+    if (!name) {
+      setManualSkillState("error");
+      setManualSkillMessage("추가할 기술명을 입력해주세요.");
+      return;
+    }
+    setManualSkillState("saving");
+    setManualSkillMessage("기술을 추가하는 중입니다...");
+    try {
+      await skillsApi.createMySkill({
+        name,
+        category,
+        level: manualSkillLevel,
+        description: "사용자가 직접 추가한 기술입니다.",
+      });
+      setManualSkillName("");
+      await onSaved();
+      setManualSkillState("saved");
+      setManualSkillMessage(`${name} 스탯을 추가했습니다.`);
+    } catch (error) {
+      setManualSkillState("error");
+      setManualSkillMessage(error.message || "기술 추가에 실패했습니다.");
     }
   };
   const deleteDocument = async () => {
@@ -1397,6 +1430,53 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
             ))}
           </div>
         ) : null}
+
+        <div className="card manual-skill-card">
+          <div>
+            <div className="card-title">직접 스탯 추가</div>
+            <p className="card-sub">자동 감지되지 않은 기술은 직접 추가하고 숙련도를 설정할 수 있습니다</p>
+          </div>
+          <div className="manual-skill-form">
+            <select
+              className="input-control compact-select"
+              value={manualSkillCategory}
+              onChange={(event) => setManualSkillCategory(event.target.value)}
+              aria-label="스탯 카테고리"
+            >
+              {[...new Set([...(cats.length ? cats : []), "언어", "백엔드", "프론트엔드", "모바일", "AI", "운영/협업", "기타"])].map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+            <input
+              className="input-control"
+              value={manualSkillName}
+              onChange={(event) => setManualSkillName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  addManualSkill();
+                }
+              }}
+              placeholder="예: Riverpod, Firebase, GraphQL"
+              aria-label="추가할 기술명"
+            />
+            <select
+              className="input-control compact-select"
+              value={manualSkillLevel}
+              onChange={(event) => setManualSkillLevel(Number(event.target.value))}
+              aria-label="숙련도"
+            >
+              {LV_LABELS.map((label, index) => (
+                <option key={label} value={index + 1}>{label}</option>
+              ))}
+            </select>
+            <button className="btn btn-secondary" onClick={addManualSkill} disabled={manualSkillState === "saving"} type="button">
+              <Icon icon={Plus} size={14} />
+              {manualSkillState === "saving" ? "추가 중" : "추가"}
+            </button>
+          </div>
+          {manualSkillMessage && <div className={`upload-message ${manualSkillState}`}>{manualSkillMessage}</div>}
+        </div>
 
         <div className="card">
           {cats.length ? (

@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import Skill, UserSkill
-from app.schemas.skills import RadarPoint, SkillRead, UserSkillRead, UserSkillUpsert
+from app.schemas.skills import RadarPoint, SkillRead, UserSkillCreate, UserSkillRead, UserSkillUpsert
 from app.seeds.skills import INITIAL_SKILLS
 
 router = APIRouter()
@@ -74,6 +74,42 @@ async def upsert_my_skills(
             )
         else:
             user_skill.level = item.level
+    await session.commit()
+    return await my_skills(session, current_user)
+
+
+@router.post("/me", response_model=list[UserSkillRead], status_code=status.HTTP_201_CREATED)
+async def create_my_skill(
+    payload: UserSkillCreate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> list[dict]:
+    name = payload.name.strip()
+    category = payload.category.strip()
+    if not name or not category:
+        return await my_skills(session, current_user)
+
+    skill = await session.scalar(select(Skill).where(Skill.category == category, Skill.name == name))
+    if skill is None:
+        skill = Skill(
+            category=category,
+            name=name,
+            description=payload.description or "사용자가 직접 추가한 기술입니다.",
+        )
+        session.add(skill)
+        await session.flush()
+
+    user_skill = await session.scalar(
+        select(UserSkill).where(
+            UserSkill.user_id == current_user.id,
+            UserSkill.skill_id == skill.id,
+        )
+    )
+    if user_skill is None:
+        session.add(UserSkill(user_id=current_user.id, skill_id=skill.id, level=payload.level))
+    else:
+        user_skill.level = payload.level
+
     await session.commit()
     return await my_skills(session, current_user)
 
