@@ -230,6 +230,24 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .score-bar { height: 6px; margin-top: 9px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
 .score-bar-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--blue), var(--purple)); }
 .score-detail-pct { width: 48px; text-align: right; color: var(--purple); font-size: 16px; font-weight: 900; flex-shrink: 0; }
+.stat-compare-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; align-items: center; }
+.stat-compare-chart { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.radar-legend { display: flex; gap: 14px; justify-content: center; margin-top: -8px; font-size: 12px; color: var(--text2); }
+.radar-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend-line { width: 18px; height: 3px; border-radius: 999px; display: inline-block; }
+.legend-line.mine { background: var(--blue); }
+.legend-line.target { background: var(--purple); }
+.stat-compare-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.stat-compare-tile { padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); }
+.stat-compare-tile > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.stat-compare-tile strong { font-size: 13px; color: var(--text); }
+.stat-compare-tile span { font-size: 11.5px; color: var(--text3); font-weight: 700; }
+.stat-compare-values { display: flex; justify-content: space-between; margin: 10px 0 7px; }
+.dual-bar { display: flex; flex-direction: column; gap: 5px; }
+.dual-bar-track { height: 6px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
+.dual-bar-fill { height: 100%; border-radius: inherit; }
+.dual-bar-fill.mine { background: var(--blue); }
+.dual-bar-fill.target { background: var(--purple); }
 .legend-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
 .exp-legend { display: flex; gap: 14px; }
 .legend-dot-row { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
@@ -453,6 +471,8 @@ button:disabled { cursor: not-allowed; opacity: .58; }
   .upload-grid { flex-direction: column; }
   .analyze-footer { align-items: stretch; flex-direction: column; }
   .score-box { text-align: left; }
+  .stat-compare-layout { grid-template-columns: 1fr; }
+  .stat-compare-grid { grid-template-columns: 1fr; }
   .comment-form, .inline-form { flex-direction: column; }
   .auth-card { padding: 28px 20px; }
   .notice-toast { top: auto; right: 14px; left: 14px; bottom: 68px; width: auto; align-items: flex-start; }

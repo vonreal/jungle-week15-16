@@ -1,4 +1,4 @@
-export default function RadarChart({ data, size = 260 }) {
+export default function RadarChart({ data, compareData = null, size = 260 }) {
   const cx = size / 2;
   const cy = size / 2;
   const r = size * 0.36;
@@ -11,6 +11,10 @@ export default function RadarChart({ data, size = 260 }) {
   ];
   const poly = (scale) => data.map((_, i) => point(i, scale).join(",")).join(" ");
   const dataPoly = data.map((d, i) => point(i, d.v / 100).join(",")).join(" ");
+  const compareMap = new Map((compareData ?? []).map((d) => [d.label, d.v]));
+  const comparePoly = data
+    .map((d, i) => point(i, (compareMap.get(d.label) ?? 0) / 100).join(","))
+    .join(" ");
 
   return (
     <svg width={size} height={size} viewBox={`${-pad} ${-pad} ${size + pad * 2} ${size + pad * 2}`} aria-label="스탯 레이더 차트">
@@ -28,6 +32,15 @@ export default function RadarChart({ data, size = 260 }) {
         strokeWidth="2.5"
         strokeLinejoin="round"
       />
+      {compareData && (
+        <polygon
+          points={comparePoly}
+          fill="rgba(124,58,237,0.08)"
+          stroke="#7C3AED"
+          strokeWidth="2.5"
+          strokeLinejoin="round"
+        />
+      )}
       {data.map((d, i) => {
         const [x, y] = point(i, d.v / 100);
         return <circle key={d.label} cx={x} cy={y} r="4.5" fill="#3B6FEF" stroke="#fff" strokeWidth="2" />;
