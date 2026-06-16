@@ -2464,6 +2464,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
       await postsApi.apply(post.id);
       const nextStatus = await postsApi.applicationStatus(post.id);
       setApplicationStatus(nextStatus);
+      await onPostUpdated(post, "스터디 신청 완료");
       notifyUnavailable("스터디 신청이 완료되었습니다.");
     } catch (event) {
       notifyUnavailable(event.message || "스터디 신청에 실패했습니다.");
@@ -2491,6 +2492,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
       setApplicants((prev) => prev.map((item) => (item.id === applicationId ? updated : item)));
       const nextApplicationStatus = await postsApi.applicationStatus(post.id);
       setApplicationStatus(nextApplicationStatus);
+      await onPostUpdated(post, nextStatus === "approved" ? "신청 승인됨" : "신청 거절됨");
     } catch (event) {
       notifyUnavailable(event.message || "신청 상태 변경에 실패했습니다.");
     } finally {
@@ -2504,6 +2506,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
       await postsApi.cancelApplication(post.id);
       const nextStatus = await postsApi.applicationStatus(post.id);
       setApplicationStatus(nextStatus);
+      await onPostUpdated(post, "스터디 신청 취소됨");
       notifyUnavailable("스터디 신청을 취소했습니다.");
     } catch (event) {
       notifyUnavailable(event.message || "스터디 신청 취소에 실패했습니다.");
