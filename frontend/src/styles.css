@@ -200,7 +200,10 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .analysis-list-main { min-width: 0; }
 .analysis-list-main strong { display: block; font-size: 13.5px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .analysis-list-main span { display: block; margin-top: 4px; font-size: 12px; color: var(--text3); }
+.analysis-list-side { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .analysis-list-score { flex-shrink: 0; min-width: 44px; padding: 5px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); color: var(--purple); font-size: 13px; font-weight: 900; text-align: center; }
+.analysis-delete { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 7px; border: 1px solid transparent; background: transparent; color: var(--text3); }
+.analysis-delete:hover { color: var(--red); background: var(--red-l); border-color: #FECACA; }
 .req-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
 .req-item { display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; background: var(--bg); border-radius: 8px; border: 1px solid var(--border); font-size: 13px; line-height: 1.5; }
 .req-num { width: 20px; height: 20px; border-radius: 5px; background: var(--blue-l); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--blue); flex-shrink: 0; margin-top: 1px; }

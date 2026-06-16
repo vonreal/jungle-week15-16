@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
@@ -171,3 +171,18 @@ async def list_analyses(session: SessionDep, current_user: CurrentUser) -> list[
             }
         )
     return rows
+
+
+@router.delete("/analyses/{analysis_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_analysis(
+    analysis_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Response:
+    analysis = await session.get(JDAnalysis, analysis_id)
+    if analysis is None or analysis.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="분석 결과를 찾을 수 없습니다.")
+
+    await session.delete(analysis)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

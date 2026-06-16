@@ -1422,9 +1422,11 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed, setGlob
   );
 }
 
-function AnalysisScreen({ go, data }) {
+function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
   const analyses = data.analyses?.length ? data.analyses : data.analysis?.title ? [data.analysis] : [];
   const [selectedAnalysisId, setSelectedAnalysisId] = useState(analyses[0]?.id ?? null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeletingAnalysis, setIsDeletingAnalysis] = useState(false);
   useEffect(() => {
     if (!analyses.length) {
       setSelectedAnalysisId(null);
@@ -1442,6 +1444,19 @@ function AnalysisScreen({ go, data }) {
     core: experiences.filter((item) => item.type === "core").length,
     required: experiences.filter((item) => item.type === "required").length,
     unrelated: experiences.filter((item) => item.type === "unrelated").length,
+  };
+  const deleteAnalysis = async () => {
+    if (!deleteTarget?.id) return;
+    setIsDeletingAnalysis(true);
+    try {
+      await jdApi.deleteAnalysis(deleteTarget.id);
+      setDeleteTarget(null);
+      await onDeleted?.();
+    } catch (event) {
+      notifyUnavailable?.(event.message || "분석 결과 삭제에 실패했습니다.");
+    } finally {
+      setIsDeletingAnalysis(false);
+    }
   };
 
   if (!hasAnalysis) {
@@ -1501,7 +1516,20 @@ function AnalysisScreen({ go, data }) {
                   <strong>{item.company ? `${item.company} · ` : ""}{item.title}</strong>
                   <span>{item.createdAt ?? "분석 날짜 없음"}</span>
                 </div>
-                <div className="analysis-list-score">{item.score}%</div>
+                <div className="analysis-list-side">
+                  <div className="analysis-list-score">{item.score}%</div>
+                  <button
+                    className="analysis-delete"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setDeleteTarget(item);
+                    }}
+                    type="button"
+                    aria-label="분석 결과 삭제"
+                  >
+                    <Icon icon={X} size={14} />
+                  </button>
+                </div>
               </button>
             ))}
           </div>
@@ -1561,6 +1589,28 @@ function AnalysisScreen({ go, data }) {
           </div>
         </div>
       </div>
+
+      {deleteTarget && (
+        <div className="modal-backdrop">
+          <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-analysis-title">
+            <div className="modal-icon danger">
+              <Icon icon={X} size={20} />
+            </div>
+            <h2 id="delete-analysis-title" className="modal-title">분석 결과를 삭제할까요?</h2>
+            <p className="modal-desc">
+              {deleteTarget.company ? `${deleteTarget.company} · ` : ""}{deleteTarget.title} 분석 결과와 경험 분류가 삭제됩니다.
+            </p>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setDeleteTarget(null)} disabled={isDeletingAnalysis} type="button">
+                취소
+              </button>
+              <button className="btn btn-danger" onClick={deleteAnalysis} disabled={isDeletingAnalysis} type="button">
+                {isDeletingAnalysis ? "삭제 중" : "삭제"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2896,7 +2946,14 @@ export default function App() {
         setGlobalLoading={setGlobalLoading}
       />
     ),
-    analysis: <AnalysisScreen go={go} data={appData} />,
+    analysis: (
+      <AnalysisScreen
+        go={go}
+        data={appData}
+        onDeleted={() => reloadAppData(currentUser, { label: "분석 결과 삭제됨", tone: "ok" })}
+        notifyUnavailable={notifyUnavailable}
+      />
+    ),
     portfolio: <PortfolioScreen data={appData} />,
     posts: <PostListScreen go={go} data={appData} onSelectPost={openPost} />,
     "post-detail": <PostDetailScreen go={go} data={appData} selectedPostId={selectedPostId} currentUser={currentUser} onEditPost={editPost} onDeleted={handlePostDeleted} onPostUpdated={handlePostUpdated} requireAuth={requireAuth} notifyUnavailable={notifyUnavailable} />,

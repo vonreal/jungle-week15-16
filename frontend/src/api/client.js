@@ -108,6 +108,7 @@ export const skillsApi = {
 export const jdApi = {
   list: () => apiFetch("/jd"),
   analyses: () => apiFetch("/jd/analyses"),
+  deleteAnalysis: (analysisId) => apiFetch(`/jd/analyses/${analysisId}`, { method: "DELETE" }),
   create: (payload) => apiFetch("/jd", { method: "POST", body: JSON.stringify(payload) }),
   analyze: (jdId) => apiFetch(`/jd/${jdId}/analyze`, { method: "POST" }),
 };
