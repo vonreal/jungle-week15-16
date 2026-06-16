@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
-from sqlalchemy import select
+import uuid
+
+from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, status
+from sqlalchemy import delete, select
 
 from app.api.deps import CurrentUser, SessionDep
-from app.models import UserDocument, UserExperience
-from app.schemas.documents import DocumentCreate, DocumentRead, ExperienceRead
+from app.models import DocumentEmbedding, UserDocument, UserExperience
+from app.schemas.documents import DocumentCreate, DocumentRead, ExperienceRead, ExperienceUpdate
 from app.services.documents import DocumentParserService, DocumentTextExtractorService
 from app.services.rag import RAGService
 
@@ -83,6 +85,50 @@ async def list_experiences(session: SessionDep, current_user: CurrentUser) -> li
     return list(result.scalars().all())
 
 
+@router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_document(
+    document_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Response:
+    document = await _get_document_or_404(session, document_id, current_user.id)
+    await session.execute(
+        delete(DocumentEmbedding).where(
+            DocumentEmbedding.source_type == document.type,
+            DocumentEmbedding.source_id == document.id,
+        )
+    )
+    await session.delete(document)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/experiences/{experience_id}", response_model=ExperienceRead)
+async def update_experience(
+    experience_id: uuid.UUID,
+    payload: ExperienceUpdate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> UserExperience:
+    experience = await _get_experience_or_404(session, experience_id, current_user.id)
+    experience.content = payload.content.strip()
+    await session.commit()
+    await session.refresh(experience)
+    return experience
+
+
+@router.delete("/experiences/{experience_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_experience(
+    experience_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Response:
+    experience = await _get_experience_or_404(session, experience_id, current_user.id)
+    await session.delete(experience)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 async def _extract_and_store_experiences(
     session: SessionDep,
     user_id,
@@ -97,3 +143,29 @@ async def _store_document_chunks(session: SessionDep, document: UserDocument) ->
     if document.type not in {"resume", "portfolio"}:
         return
     await RAGService().store_chunks(session, document.type, document.id, document.raw_text)
+
+
+async def _get_document_or_404(
+    session: SessionDep,
+    document_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> UserDocument:
+    document = await session.scalar(
+        select(UserDocument).where(UserDocument.id == document_id, UserDocument.user_id == user_id)
+    )
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="문서를 찾을 수 없습니다.")
+    return document
+
+
+async def _get_experience_or_404(
+    session: SessionDep,
+    experience_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> UserExperience:
+    experience = await session.scalar(
+        select(UserExperience).where(UserExperience.id == experience_id, UserExperience.user_id == user_id)
+    )
+    if experience is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="경험을 찾을 수 없습니다.")
+    return experience

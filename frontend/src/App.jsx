@@ -1202,6 +1202,13 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
   const [uploadState, setUploadState] = useState("idle");
   const [uploadMessage, setUploadMessage] = useState("");
   const [showAllExperiences, setShowAllExperiences] = useState(false);
+  const [documentDeleteTarget, setDocumentDeleteTarget] = useState(null);
+  const [experienceDeleteTarget, setExperienceDeleteTarget] = useState(null);
+  const [deletingDocumentId, setDeletingDocumentId] = useState(null);
+  const [deletingExperienceId, setDeletingExperienceId] = useState(null);
+  const [editingExperienceId, setEditingExperienceId] = useState(null);
+  const [editingExperienceContent, setEditingExperienceContent] = useState("");
+  const [savingExperienceId, setSavingExperienceId] = useState(null);
   const resumeInputRef = useRef(null);
   const portfolioInputRef = useRef(null);
   const experienceCounts = data.experiences.reduce((counts, item) => {
@@ -1268,6 +1275,67 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
     } catch (error) {
       setUploadState("error");
       setUploadMessage(error.message || "파일 업로드에 실패했습니다.");
+    }
+  };
+  const deleteDocument = async () => {
+    if (!documentDeleteTarget) return;
+    setDeletingDocumentId(documentDeleteTarget.id);
+    try {
+      await documentsApi.remove(documentDeleteTarget.id);
+      await onDocumentsChanged?.();
+      setDocumentDeleteTarget(null);
+      setUploadState("saved");
+      setUploadMessage("문서와 연결된 경험을 삭제했습니다.");
+    } catch (error) {
+      setUploadState("error");
+      setUploadMessage(error.message || "문서 삭제에 실패했습니다.");
+    } finally {
+      setDeletingDocumentId(null);
+    }
+  };
+  const startEditExperience = (experience) => {
+    setEditingExperienceId(experience.id);
+    setEditingExperienceContent(experience.content);
+  };
+  const cancelEditExperience = () => {
+    setEditingExperienceId(null);
+    setEditingExperienceContent("");
+  };
+  const saveExperience = async (experienceId) => {
+    const content = editingExperienceContent.trim();
+    if (!content) {
+      setUploadState("error");
+      setUploadMessage("경험 내용을 입력해주세요.");
+      return;
+    }
+    setSavingExperienceId(experienceId);
+    try {
+      await documentsApi.updateExperience(experienceId, { content });
+      await onDocumentsChanged?.();
+      cancelEditExperience();
+      setUploadState("saved");
+      setUploadMessage("경험을 수정했습니다.");
+    } catch (error) {
+      setUploadState("error");
+      setUploadMessage(error.message || "경험 수정에 실패했습니다.");
+    } finally {
+      setSavingExperienceId(null);
+    }
+  };
+  const deleteExperience = async () => {
+    if (!experienceDeleteTarget) return;
+    setDeletingExperienceId(experienceDeleteTarget.id);
+    try {
+      await documentsApi.deleteExperience(experienceDeleteTarget.id);
+      await onDocumentsChanged?.();
+      setExperienceDeleteTarget(null);
+      setUploadState("saved");
+      setUploadMessage("경험을 삭제했습니다.");
+    } catch (error) {
+      setUploadState("error");
+      setUploadMessage(error.message || "경험 삭제에 실패했습니다.");
+    } finally {
+      setDeletingExperienceId(null);
     }
   };
 
@@ -1386,7 +1454,17 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
                     <strong>{document.file_name}</strong>
                     <span>{document.type === "resume" ? "이력서" : document.type === "portfolio" ? "포트폴리오" : "기준 문서"} · {formatDateTime(document.created_at)}</span>
                   </div>
-                  <span className="document-count">경험 {experienceCounts[document.id] ?? 0}개</span>
+                  <div className="document-actions">
+                    <span className="document-count">경험 {experienceCounts[document.id] ?? 0}개</span>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => setDocumentDeleteTarget(document)}
+                      disabled={deletingDocumentId === document.id}
+                      type="button"
+                    >
+                      삭제
+                    </button>
+                  </div>
                 </div>
               ))
             ) : (
@@ -1409,14 +1487,83 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
               </div>
               {visibleExperiences.map((experience) => (
                 <div key={experience.id} className="experience-preview-row">
-                  <strong>{experience.content}</strong>
-                  <span>{documentNames.get(experience.document_id) ?? "문서 없음"}</span>
+                  {editingExperienceId === experience.id ? (
+                    <div className="experience-edit-form">
+                      <textarea
+                        className="input"
+                        value={editingExperienceContent}
+                        onChange={(event) => setEditingExperienceContent(event.target.value)}
+                        rows={3}
+                      />
+                      <div className="experience-actions">
+                        <button className="btn btn-secondary btn-sm" onClick={cancelEditExperience} disabled={savingExperienceId === experience.id} type="button">취소</button>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => saveExperience(experience.id)}
+                          disabled={savingExperienceId === experience.id || !editingExperienceContent.trim()}
+                          type="button"
+                        >
+                          {savingExperienceId === experience.id ? "저장 중" : "저장"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="experience-row-head">
+                        <strong>{experience.content}</strong>
+                        <div className="experience-actions">
+                          <button className="comment-action neutral" onClick={() => startEditExperience(experience)} type="button">수정</button>
+                          <button
+                            className="comment-action"
+                            onClick={() => setExperienceDeleteTarget(experience)}
+                            disabled={deletingExperienceId === experience.id}
+                            type="button"
+                          >
+                            {deletingExperienceId === experience.id ? "삭제 중" : "삭제"}
+                          </button>
+                        </div>
+                      </div>
+                      <span>{documentNames.get(experience.document_id) ?? "문서 없음"}</span>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
           ) : null}
         </div>
       </div>
+      {documentDeleteTarget && (
+        <div className="modal-backdrop">
+          <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-document-title">
+            <div className="modal-icon danger"><Icon icon={X} size={18} /></div>
+            <h2 id="delete-document-title" className="modal-title">문서를 삭제할까요?</h2>
+            <p className="modal-desc">
+              {documentDeleteTarget.file_name} 문서와 이 문서에서 추출된 경험이 함께 삭제됩니다.
+            </p>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setDocumentDeleteTarget(null)} disabled={Boolean(deletingDocumentId)} type="button">취소</button>
+              <button className="btn btn-danger" onClick={deleteDocument} disabled={Boolean(deletingDocumentId)} type="button">
+                {deletingDocumentId ? "삭제 중" : "삭제"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {experienceDeleteTarget && (
+        <div className="modal-backdrop">
+          <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-experience-title">
+            <div className="modal-icon danger"><Icon icon={X} size={18} /></div>
+            <h2 id="delete-experience-title" className="modal-title">경험을 삭제할까요?</h2>
+            <p className="modal-desc">삭제한 경험은 이후 JD 분석에서 제외됩니다.</p>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setExperienceDeleteTarget(null)} disabled={Boolean(deletingExperienceId)} type="button">취소</button>
+              <button className="btn btn-danger" onClick={deleteExperience} disabled={Boolean(deletingExperienceId)} type="button">
+                {deletingExperienceId ? "삭제 중" : "삭제"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

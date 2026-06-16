@@ -109,6 +109,9 @@ export const skillsApi = {
 export const documentsApi = {
   list: () => apiFetch("/documents"),
   experiences: () => apiFetch("/documents/experiences"),
+  remove: (documentId) => apiFetch(`/documents/${documentId}`, { method: "DELETE" }),
+  updateExperience: (experienceId, payload) => apiFetch(`/documents/experiences/${experienceId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteExperience: (experienceId) => apiFetch(`/documents/experiences/${experienceId}`, { method: "DELETE" }),
   upload: (type, file) => {
     const formData = new FormData();
     formData.append("type", type);

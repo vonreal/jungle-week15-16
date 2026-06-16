@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DocumentRead(BaseModel):
@@ -28,9 +28,12 @@ class ExperienceRead(BaseModel):
     created_at: datetime
 
 
+class ExperienceUpdate(BaseModel):
+    content: str = Field(min_length=1, max_length=5000)
+
+
 class DocumentCreate(BaseModel):
     type: str
     file_name: str
     file_url: str | None = None
     raw_text: str | None = None
-
