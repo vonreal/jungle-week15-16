@@ -47,8 +47,9 @@ function toErrorMessage(detail, fallback) {
 
 export async function apiFetch(path, options = {}) {
   const token = localStorage.getItem("careerbuddy.token");
+  const isFormData = options.body instanceof FormData;
   const headers = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers ?? {}),
   };
   if (token) {
@@ -103,6 +104,17 @@ export const skillsApi = {
   list: () => apiFetch("/skills"),
   mySkills: () => apiFetch("/skills/me"),
   updateMySkills: (payload) => apiFetch("/skills/me", { method: "PUT", body: JSON.stringify(payload) }),
+};
+
+export const documentsApi = {
+  list: () => apiFetch("/documents"),
+  experiences: () => apiFetch("/documents/experiences"),
+  upload: (type, file) => {
+    const formData = new FormData();
+    formData.append("type", type);
+    formData.append("file", file);
+    return apiFetch("/documents/upload", { method: "POST", body: formData });
+  },
 };
 
 export const jdApi = {

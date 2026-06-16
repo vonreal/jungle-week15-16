@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -29,7 +29,7 @@ import {
 import Chip from "./components/Chip.jsx";
 import LevelPip from "./components/LevelPip.jsx";
 import RadarChart from "./components/RadarChart.jsx";
-import { authApi, jdApi, postsApi, skillsApi } from "./api/client.js";
+import { authApi, documentsApi, jdApi, postsApi, skillsApi } from "./api/client.js";
 
 const NAV_ICONS = {
   dashboard: Home,
@@ -245,6 +245,8 @@ const EMPTY_DATA = {
   applications: [],
   postsPage: { page: 1, size: 12, total: 0 },
   comments: [],
+  documents: [],
+  experiences: [],
 };
 
 function buildSkillsByCategory(skillCatalog = [], userSkills = []) {
@@ -334,7 +336,17 @@ function buildRecentJds(analyses = [], userSkills = []) {
   }));
 }
 
-function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage = null, drafts = [], applications = [], analyses = []) {
+function normalizeAppState(
+  state,
+  skillCatalog = [],
+  userSkills = [],
+  postsPage = null,
+  drafts = [],
+  applications = [],
+  analyses = [],
+  documents = [],
+  experiences = [],
+) {
   const base = {
     ...EMPTY_DATA,
     source: state?.source ?? "empty",
@@ -347,6 +359,8 @@ function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage 
     posts: postsPage?.items ?? [],
     drafts,
     applications,
+    documents,
+    experiences,
     postsPage: postsPage
       ? { page: postsPage.page, size: postsPage.size, total: postsPage.total }
       : EMPTY_DATA.postsPage,
@@ -373,19 +387,23 @@ function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage 
     posts: state.posts ?? base.posts,
     postsPage: base.postsPage,
     comments: state.comments ?? [],
+    documents: state.documents ?? base.documents,
+    experiences: state.experiences ?? base.experiences,
   };
 }
 
 async function fetchAppState(currentUser = null) {
-  const [skillCatalog, userSkills, postsPage, drafts, applications, analyses] = await Promise.all([
+  const [skillCatalog, userSkills, postsPage, drafts, applications, analyses, documents, experiences] = await Promise.all([
     skillsApi.list(),
     currentUser ? skillsApi.mySkills() : Promise.resolve([]),
     postsApi.list({ page: 1, size: 50 }),
     currentUser ? postsApi.drafts() : Promise.resolve([]),
     currentUser ? postsApi.myApplications() : Promise.resolve([]),
     currentUser ? jdApi.analyses() : Promise.resolve([]),
+    currentUser ? documentsApi.list() : Promise.resolve([]),
+    currentUser ? documentsApi.experiences() : Promise.resolve([]),
   ]);
-  return normalizeAppState(null, skillCatalog, userSkills, postsPage, drafts, applications, analyses);
+  return normalizeAppState(null, skillCatalog, userSkills, postsPage, drafts, applications, analyses, documents, experiences);
 }
 
 function formatDateTime(value) {
@@ -1053,7 +1071,7 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost, o
   );
 }
 
-function StatsScreen({ data, onSaved, requireAuth, notifyUnavailable }) {
+function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUnavailable }) {
   const sourceSkills = data.skills;
   const cats = Object.keys(sourceSkills);
   const [cat, setCat] = useState(cats[0]);
@@ -1061,6 +1079,16 @@ function StatsScreen({ data, onSaved, requireAuth, notifyUnavailable }) {
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState("idle");
   const [saveMessage, setSaveMessage] = useState("");
+  const [uploadState, setUploadState] = useState("idle");
+  const [uploadMessage, setUploadMessage] = useState("");
+  const resumeInputRef = useRef(null);
+  const portfolioInputRef = useRef(null);
+  const experienceCounts = data.experiences.reduce((counts, item) => {
+    if (!item.document_id) return counts;
+    counts[item.document_id] = (counts[item.document_id] ?? 0) + 1;
+    return counts;
+  }, {});
+  const documentNames = new Map(data.documents.map((document) => [document.id, document.file_name]));
   useEffect(() => {
     const nextCats = Object.keys(sourceSkills);
     setSkills(sourceSkills);
@@ -1103,6 +1131,21 @@ function StatsScreen({ data, onSaved, requireAuth, notifyUnavailable }) {
     } catch (error) {
       setSaveState("error");
       setSaveMessage(error.message || "저장에 실패했습니다");
+    }
+  };
+  const uploadDocument = async (type, file) => {
+    if (!file) return;
+    if (!requireAuth("파일 업로드는 로그인 후 사용할 수 있습니다.")) return;
+    setUploadState("saving");
+    setUploadMessage(`${file.name} 업로드 중입니다...`);
+    try {
+      await documentsApi.upload(type, file);
+      await onDocumentsChanged?.();
+      setUploadState("saved");
+      setUploadMessage("업로드가 완료됐습니다. 추출된 경험을 확인해주세요.");
+    } catch (error) {
+      setUploadState("error");
+      setUploadMessage(error.message || "파일 업로드에 실패했습니다.");
     }
   };
 
@@ -1171,28 +1214,74 @@ function StatsScreen({ data, onSaved, requireAuth, notifyUnavailable }) {
 
         <div className="card">
           <div className="card-title">이력서 & 포트폴리오 업로드</div>
-          <p className="card-sub">파일을 업로드하면 스탯이 자동으로 분석됩니다</p>
+          <p className="card-sub">텍스트 기반 파일을 업로드하면 경험을 추출하고 JD 분석에 활용합니다</p>
+          {uploadMessage && <div className={`upload-message ${uploadState}`}>{uploadMessage}</div>}
+          <input
+            ref={resumeInputRef}
+            className="hidden-input"
+            type="file"
+            accept=".txt,.md,.pdf,.doc,.docx"
+            onChange={(event) => {
+              uploadDocument("resume", event.target.files?.[0]);
+              event.target.value = "";
+            }}
+          />
+          <input
+            ref={portfolioInputRef}
+            className="hidden-input"
+            type="file"
+            accept=".txt,.md,.pdf,.doc,.docx,.zip"
+            onChange={(event) => {
+              uploadDocument("portfolio", event.target.files?.[0]);
+              event.target.value = "";
+            }}
+          />
           <div className="upload-grid">
             {[
-              { icon: FileText, title: "이력서", fmt: "PDF, DOCX 지원" },
-              { icon: Upload, title: "포트폴리오", fmt: "PDF, ZIP, URL 지원" },
+              { icon: FileText, title: "이력서", fmt: "TXT, MD 우선 지원", onClick: () => resumeInputRef.current?.click() },
+              { icon: Upload, title: "포트폴리오", fmt: "TXT, MD 우선 지원", onClick: () => portfolioInputRef.current?.click() },
             ].map((item) => (
               <button
                 key={item.title}
                 className="upload-zone"
-                onClick={() =>
-                  requireAuth("파일 업로드는 로그인 후 사용할 수 있습니다.") &&
-                  notifyUnavailable(`${item.title} 업로드와 LLM 파싱은 3단계 API에서 연결할 예정입니다.`)
-                }
+                onClick={() => requireAuth("파일 업로드는 로그인 후 사용할 수 있습니다.") && item.onClick()}
+                disabled={uploadState === "saving"}
                 type="button"
               >
                 <Icon icon={item.icon} size={30} />
                 <div className="upload-title">{item.title}</div>
                 <div className="upload-format">{item.fmt}</div>
-                <span className="btn btn-secondary btn-sm">파일 선택</span>
+                <span className="btn btn-secondary btn-sm">{uploadState === "saving" ? "업로드 중" : "파일 선택"}</span>
               </button>
             ))}
           </div>
+          <div className="document-list">
+            <div className="card-title card-title-spaced">업로드한 문서</div>
+            {data.documents.length ? (
+              data.documents.map((document) => (
+                <div key={document.id} className="document-row">
+                  <div>
+                    <strong>{document.file_name}</strong>
+                    <span>{document.type === "resume" ? "이력서" : document.type === "portfolio" ? "포트폴리오" : "기준 문서"} · {formatDateTime(document.created_at)}</span>
+                  </div>
+                  <span className="document-count">경험 {experienceCounts[document.id] ?? 0}개</span>
+                </div>
+              ))
+            ) : (
+              <EmptyState title="업로드한 문서가 없습니다" description="이력서나 포트폴리오 파일을 업로드하면 여기에 표시됩니다." />
+            )}
+          </div>
+          {data.experiences.length ? (
+            <div className="experience-preview">
+              <div className="card-title card-title-spaced">최근 추출 경험</div>
+              {data.experiences.slice(0, 5).map((experience) => (
+                <div key={experience.id} className="experience-preview-row">
+                  <strong>{experience.content}</strong>
+                  <span>{documentNames.get(experience.document_id) ?? "문서 없음"}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -3139,6 +3228,7 @@ export default function App() {
       <StatsScreen
         data={appData}
         onSaved={() => reloadAppData(currentUser, { label: "내 스탯 저장됨", tone: "ok" })}
+        onDocumentsChanged={() => reloadAppData(currentUser, { label: "문서 업로드 완료", tone: "ok" })}
         requireAuth={requireAuth}
         notifyUnavailable={notifyUnavailable}
       />
