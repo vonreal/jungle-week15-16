@@ -382,6 +382,12 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .notice-copy span { display: block; font-size: 12.5px; color: var(--text2); line-height: 1.45; }
 .notice-close { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid var(--border); border-radius: 7px; color: var(--text3); background: var(--surface); }
 .notice-close:hover { color: var(--text); border-color: var(--border-s); }
+.global-loading { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(244, 245, 248, .74); backdrop-filter: blur(3px); }
+.global-loading-card { width: min(360px, 100%); padding: 30px 28px; border-radius: 12px; border: 1px solid var(--blue-m); background: var(--surface); box-shadow: var(--sh-m); text-align: center; }
+.global-loading-icon { color: var(--blue); animation: spin 1s linear infinite; }
+.global-loading-title { margin-top: 14px; font-size: 18px; font-weight: 800; color: var(--text); line-height: 1.35; }
+.global-loading-desc { margin-top: 8px; font-size: 13px; line-height: 1.55; color: var(--text2); word-break: keep-all; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .modal-backdrop { position: fixed; inset: 0; z-index: 260; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(15,17,23,.34); }
 .modal-card { width: min(380px, 100%); border-radius: 12px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--sh-m); padding: 24px; text-align: center; }
 .modal-icon { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; margin-bottom: 12px; }

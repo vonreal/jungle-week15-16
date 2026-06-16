@@ -10,6 +10,7 @@ import {
   EyeOff,
   FileText,
   Home,
+  LoaderCircle,
   LogIn,
   Map as MapIcon,
   MessageCircle,
@@ -401,8 +402,8 @@ function Dashboard({ go, data, apiStatus, currentUser, onLogout, requireAuth }) 
             <div className="card-title card-title-spaced">최근 분석한 JD</div>
             <div className="stack-list">
               {data.recentJds.length ? (
-                data.recentJds.map((jd) => (
-                  <button key={jd.co} className="jd-item" onClick={() => go("analysis")} type="button">
+                data.recentJds.map((jd, index) => (
+                  <button key={`${jd.co}-${jd.role}-${jd.date}-${index}`} className="jd-item" onClick={() => go("analysis")} type="button">
                     <div className="jd-dot" style={{ background: jd.dot }} />
                     <div className="grow">
                       <div className="jd-co">
@@ -1116,7 +1117,7 @@ function StatsViewScreen({ go, data }) {
   );
 }
 
-function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed }) {
+function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed, setGlobalLoading }) {
   const [tab, setTab] = useState("link");
   const [title, setTitle] = useState("");
   const [company, setCompany] = useState("");
@@ -1148,6 +1149,10 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed }) {
       return;
     }
     setStatus("saving");
+    setGlobalLoading({
+      title: "JD를 분석하는 중입니다",
+      description: "채용공고 저장, RAG 검색, 내 스탯 비교를 순서대로 처리하고 있습니다.",
+    });
     setError("");
     try {
       const jd = await jdApi.create({
@@ -1162,6 +1167,8 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed }) {
     } catch (event) {
       setError(event.message || "JD 분석에 실패했습니다.");
       setStatus("idle");
+    } finally {
+      setGlobalLoading(null);
     }
   };
 
@@ -2545,6 +2552,19 @@ function NoticeToast({ notice, onLogin, onClose }) {
   );
 }
 
+function GlobalLoadingOverlay({ loading }) {
+  if (!loading) return null;
+  return (
+    <div className="global-loading" role="status" aria-live="polite" aria-busy="true">
+      <div className="global-loading-card">
+        <LoaderCircle className="global-loading-icon" size={34} />
+        <div className="global-loading-title">{loading.title}</div>
+        <div className="global-loading-desc">{loading.description}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [screen, setScreen] = useState("dashboard");
   const [appData, setAppData] = useState(EMPTY_DATA);
@@ -2553,6 +2573,7 @@ export default function App() {
   const [editingPost, setEditingPost] = useState(null);
   const [apiStatus, setApiStatus] = useState({ label: "API 연결 중", tone: "loading" });
   const [notice, setNotice] = useState(null);
+  const [globalLoading, setGlobalLoading] = useState(null);
   const showNotice = (message, kind = "info") => {
     setNotice({ id: Date.now(), kind, message });
   };
@@ -2710,7 +2731,15 @@ export default function App() {
         notifyUnavailable={notifyUnavailable}
       />
     ),
-    jdinput: <JDInputScreen go={go} requireAuth={requireAuth} notifyUnavailable={notifyUnavailable} onAnalyzed={handleAnalysisCreated} />,
+    jdinput: (
+      <JDInputScreen
+        go={go}
+        requireAuth={requireAuth}
+        notifyUnavailable={notifyUnavailable}
+        onAnalyzed={handleAnalysisCreated}
+        setGlobalLoading={setGlobalLoading}
+      />
+    ),
     analysis: <AnalysisScreen go={go} data={appData} />,
     portfolio: <PortfolioScreen data={appData} />,
     posts: <PostListScreen go={go} data={appData} onSelectPost={openPost} />,
@@ -2731,6 +2760,7 @@ export default function App() {
         }}
         onClose={() => setNotice(null)}
       />
+      <GlobalLoadingOverlay loading={globalLoading} />
     </div>
   );
 }
