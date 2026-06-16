@@ -17,7 +17,7 @@ from app.models import (
     UserExperience,
     UserSkill,
 )
-from app.schemas.jd import JDAnalysisRead, JDCreate, JDRead
+from app.schemas.jd import JDAnalysisBulkDelete, JDAnalysisRead, JDCreate, JDRead
 from app.services.crawler_mcp import MCPCrawlerService
 from app.services.jd_analyzer import JDAnalyzerService
 from app.services.rag import RAGService
@@ -195,6 +195,28 @@ async def list_analyses(session: SessionDep, current_user: CurrentUser) -> list[
             )
         )
     return rows
+
+
+@router.post("/analyses/bulk-delete", status_code=status.HTTP_204_NO_CONTENT)
+async def bulk_delete_analyses(
+    payload: JDAnalysisBulkDelete,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Response:
+    result = await session.execute(
+        select(JDAnalysis).where(
+            JDAnalysis.user_id == current_user.id,
+            JDAnalysis.id.in_(payload.analysis_ids),
+        )
+    )
+    analyses = list(result.scalars().all())
+    if len(analyses) != len(set(payload.analysis_ids)):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="삭제할 분석 결과를 찾을 수 없습니다.")
+
+    for analysis in analyses:
+        await session.delete(analysis)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete("/analyses/{analysis_id}", status_code=status.HTTP_204_NO_CONTENT)

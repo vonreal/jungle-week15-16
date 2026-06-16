@@ -14,6 +14,10 @@ class JDCreate(BaseModel):
     input_type: str = Field(pattern="^(link|text)$")
 
 
+class JDAnalysisBulkDelete(BaseModel):
+    analysis_ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
+
+
 class JDRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
