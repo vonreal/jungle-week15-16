@@ -7,6 +7,7 @@ from app.api.deps import CurrentUser, SessionDep
 from app.models import UserDocument, UserExperience
 from app.schemas.documents import DocumentCreate, DocumentRead, ExperienceRead
 from app.services.documents import DocumentParserService
+from app.services.rag import RAGService
 
 router = APIRouter()
 
@@ -21,6 +22,7 @@ async def create_document(
     session.add(document)
     await session.flush()
     await _extract_and_store_experiences(session, current_user.id, document)
+    await _store_document_chunks(session, document)
     await session.commit()
     await session.refresh(document)
     return document
@@ -44,6 +46,7 @@ async def upload_document(
     session.add(document)
     await session.flush()
     await _extract_and_store_experiences(session, current_user.id, document)
+    await _store_document_chunks(session, document)
     await session.commit()
     await session.refresh(document)
     return document
@@ -78,3 +81,8 @@ async def _extract_and_store_experiences(
     for content in await parser.extract_experiences(document.raw_text):
         session.add(UserExperience(user_id=user_id, document_id=document.id, content=content))
 
+
+async def _store_document_chunks(session: SessionDep, document: UserDocument) -> None:
+    if document.type not in {"resume", "portfolio"}:
+        return
+    await RAGService().store_chunks(session, document.type, document.id, document.raw_text)

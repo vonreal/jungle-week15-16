@@ -102,7 +102,7 @@ async def analyze_jd(
         .where(UserSkill.user_id == current_user.id)
     )
     user_skills = list(user_skill_result.all())
-    similar_chunks = await RAGService().similar_chunks(session, jd.raw_text)
+    similar_chunks = await RAGService().similar_chunks(session, jd.raw_text, user_id=current_user.id)
     gap_summary = await analyzer.summarize_gap(jd.raw_text, user_skills, similar_chunks)
 
     analysis = JDAnalysis(jd_id=jd.id, user_id=current_user.id, gap_summary=gap_summary)

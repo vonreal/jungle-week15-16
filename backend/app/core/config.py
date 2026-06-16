@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     llm_model: str = "gpt-4.1-mini"
+    embedding_model: str = "text-embedding-3-small"
 
     aws_host: str | None = None
     aws_user: str | None = None

@@ -58,6 +58,7 @@ DOCKER_DATABASE_URL=postgresql+asyncpg://careerbuddy:replace-with-local-password
 SECRET_KEY=<replace-with-a-long-random-string>
 OPENAI_API_KEY=
 LLM_MODEL=gpt-4.1-mini
+EMBEDDING_MODEL=text-embedding-3-small
 ```
 
 키가 없으면 백엔드는 로컬 개발을 위해 규칙 기반 fallback을 반환합니다.
