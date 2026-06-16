@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, File, Form, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import UserDocument, UserExperience
 from app.schemas.documents import DocumentCreate, DocumentRead, ExperienceRead
-from app.services.documents import DocumentParserService
+from app.services.documents import DocumentParserService, DocumentTextExtractorService
 from app.services.rag import RAGService
 
 router = APIRouter()
@@ -36,7 +36,18 @@ async def upload_document(
     file: UploadFile = File(...),
 ) -> UserDocument:
     body = await file.read()
-    raw_text = body.decode("utf-8", errors="ignore")
+    try:
+        raw_text = DocumentTextExtractorService().extract_text(file.filename, body)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="문서 텍스트 추출에 실패했습니다.",
+        ) from exc
+    if not raw_text.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="문서에서 읽을 수 있는 텍스트를 찾지 못했습니다.",
+        )
     document = UserDocument(
         user_id=current_user.id,
         type=type,

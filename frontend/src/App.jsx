@@ -1214,7 +1214,7 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
 
         <div className="card">
           <div className="card-title">이력서 & 포트폴리오 업로드</div>
-          <p className="card-sub">텍스트 기반 파일을 업로드하면 경험을 추출하고 JD 분석에 활용합니다</p>
+          <p className="card-sub">PDF, DOCX, TXT, MD 파일을 업로드하면 경험을 추출하고 JD 분석에 활용합니다</p>
           {uploadMessage && <div className={`upload-message ${uploadState}`}>{uploadMessage}</div>}
           <input
             ref={resumeInputRef}
@@ -1238,8 +1238,8 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
           />
           <div className="upload-grid">
             {[
-              { icon: FileText, title: "이력서", fmt: "TXT, MD 우선 지원", onClick: () => resumeInputRef.current?.click() },
-              { icon: Upload, title: "포트폴리오", fmt: "TXT, MD 우선 지원", onClick: () => portfolioInputRef.current?.click() },
+              { icon: FileText, title: "이력서", fmt: "PDF, DOCX, TXT, MD 지원", onClick: () => resumeInputRef.current?.click() },
+              { icon: Upload, title: "포트폴리오", fmt: "PDF, DOCX, TXT, MD 지원", onClick: () => portfolioInputRef.current?.click() },
             ].map((item) => (
               <button
                 key={item.title}
