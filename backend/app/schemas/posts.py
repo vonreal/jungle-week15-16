@@ -25,6 +25,7 @@ class PostCreate(BaseModel):
     recommendation_id: uuid.UUID | None = None
     is_public: bool = True
     is_draft: bool = False
+    recruit_status: str = Field(default="open", pattern="^(open|closed)$")
     tags: list[str] = []
     stat_requirements: list[PostStatRequirementIn] = []
 
@@ -44,6 +45,7 @@ class PostUpdate(BaseModel):
     content: str | None = None
     is_public: bool | None = None
     is_draft: bool | None = None
+    recruit_status: str | None = Field(default=None, pattern="^(open|closed)$")
     tags: list[str] | None = None
     stat_requirements: list[PostStatRequirementIn] | None = None
 
@@ -74,6 +76,7 @@ class PostRead(BaseModel):
     recommendation_id: uuid.UUID | None
     is_public: bool
     is_draft: bool
+    recruit_status: str
     view_count: int
     created_at: datetime
     updated_at: datetime
@@ -85,12 +88,24 @@ class PostApplicationRead(BaseModel):
     post_id: uuid.UUID
     user_id: uuid.UUID
     user_nickname: str
+    status: str
     created_at: datetime
 
 
 class PostApplicationStatus(BaseModel):
     is_applied: bool
+    status: str | None = None
     count: int
+    pending_count: int = 0
+    approved_count: int = 0
+
+
+class PostApplicationUpdate(BaseModel):
+    status: str = Field(pattern="^(pending|approved|rejected)$")
+
+
+class MyPostApplicationRead(PostApplicationRead):
+    post: PostRead
 
 
 class PostPage(BaseModel):

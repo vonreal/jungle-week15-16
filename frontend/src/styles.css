@@ -255,6 +255,7 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .account-card-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .password-change-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .password-actions { display: flex; gap: 8px; justify-content: flex-start; }
+.danger-zone { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-color: #FECACA; background: #FFFBFB; }
 .rc-wrap { display: flex; flex-wrap: wrap; gap: 7px; }
 .rc { padding: 7px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 13px; font-weight: 500; transition: all .15s; }
 .rc.on { background: var(--blue-l); border-color: var(--blue); color: var(--blue); font-weight: 600; }
@@ -278,6 +279,14 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .role-badge { display: inline-flex; padding: 2px 9px; border-radius: 5px; font-size: 11px; font-weight: 700; border: 1px solid; }
 .draft-badge { display: inline-flex; padding: 2px 9px; border-radius: 5px; font-size: 11px; font-weight: 800; color: var(--amber); background: var(--amber-l); border: 1px solid var(--amber-m); }
 .cond-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 700; background: var(--amber-l); color: var(--amber); border: 1px solid var(--amber-m); width: fit-content; }
+.cond-badge.recruit-open { background: var(--green-l); color: var(--green); border-color: #A7F3D0; }
+.cond-badge.recruit-closed { background: #F3F4F6; color: var(--text2); border-color: var(--border); }
+.status-badge { display: inline-flex; align-items: center; justify-content: center; width: fit-content; padding: 2px 8px; border-radius: 5px; border: 1px solid var(--border); font-size: 11px; font-weight: 800; white-space: nowrap; }
+.status-badge.recruit-open { color: var(--green); background: var(--green-l); border-color: #A7F3D0; }
+.status-badge.recruit-closed { color: var(--text2); background: #F3F4F6; border-color: var(--border); }
+.status-badge.app-pending { color: var(--amber); background: var(--amber-l); border-color: var(--amber-m); }
+.status-badge.app-approved { color: var(--green); background: var(--green-l); border-color: #A7F3D0; }
+.status-badge.app-rejected { color: var(--red); background: var(--red-l); border-color: #FECACA; }
 .post-meta, .post-detail-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .author-row, .metric-row { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text2); font-weight: 500; }
 .metric-row span { display: inline-flex; align-items: center; gap: 4px; color: var(--text3); }
@@ -322,6 +331,7 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .applicant-row:last-child { border-bottom: none; }
 .applicant-row strong { display: block; font-size: 13px; color: var(--text); }
 .applicant-row span { display: block; font-size: 11.5px; color: var(--text3); margin-top: 2px; }
+.applicant-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .linked-jd { padding: 10px 12px; background: var(--purple-l); border-radius: 8px; border: 1px solid var(--purple-m); margin-bottom: 10px; }
 .linked-jd strong { display: block; font-size: 13px; color: var(--purple); }
 .linked-jd span { display: block; font-size: 12px; color: var(--purple); margin-top: 3px; }
@@ -358,6 +368,7 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .modal-icon.danger { color: var(--red); background: var(--red-l); border: 1px solid #FECACA; }
 .modal-title { font-size: 18px; font-weight: 800; color: var(--text); line-height: 1.35; }
 .modal-desc { margin-top: 8px; font-size: 13px; line-height: 1.55; color: var(--text2); }
+.modal-field { margin-top: 16px; text-align: left; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 .modal-actions .btn { flex: 1; }
 @media (max-width: 768px) {

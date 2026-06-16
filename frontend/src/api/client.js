@@ -74,6 +74,7 @@ export const authApi = {
   me: () => apiFetch("/auth/me"),
   updateMe: (payload) => apiFetch("/auth/me", { method: "PATCH", body: JSON.stringify(payload) }),
   changePassword: (payload) => apiFetch("/auth/me/password", { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteMe: (payload) => apiFetch("/auth/me", { method: "DELETE", body: JSON.stringify(payload) }),
 };
 
 export const postsApi = {
@@ -84,9 +85,11 @@ export const postsApi = {
   update: (postId, payload) => apiFetch(`/posts/${postId}`, { method: "PATCH", body: JSON.stringify(payload) }),
   remove: (postId) => apiFetch(`/posts/${postId}`, { method: "DELETE" }),
   applicationStatus: (postId) => apiFetch(`/posts/${postId}/applications/me`),
+  myApplications: () => apiFetch("/posts/applications/me"),
   apply: (postId) => apiFetch(`/posts/${postId}/applications`, { method: "POST" }),
   cancelApplication: (postId) => apiFetch(`/posts/${postId}/applications/me`, { method: "DELETE" }),
   applications: (postId) => apiFetch(`/posts/${postId}/applications`),
+  updateApplication: (postId, applicationId, payload) => apiFetch(`/posts/${postId}/applications/${applicationId}`, { method: "PATCH", body: JSON.stringify(payload) }),
   comments: (postId) => apiFetch(`/posts/${postId}/comments`),
   createComment: (postId, payload) => apiFetch(`/posts/${postId}/comments`, { method: "POST", body: JSON.stringify(payload) }),
   deleteComment: (postId, commentId) => apiFetch(`/posts/${postId}/comments/${commentId}`, { method: "DELETE" }),

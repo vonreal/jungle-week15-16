@@ -11,8 +11,10 @@ from app.models import Comment, Post, PostApplication, PostStatRequirement, Post
 from app.schemas.posts import (
     CommentCreate,
     CommentRead,
+    MyPostApplicationRead,
     PostApplicationRead,
     PostApplicationStatus,
+    PostApplicationUpdate,
     PostCreate,
     PostPage,
     PostRead,
@@ -55,6 +57,7 @@ async def create_post(payload: PostCreate, session: SessionDep, current_user: Cu
         recommendation_id=payload.recommendation_id,
         is_public=False if payload.is_draft else payload.is_public,
         is_draft=payload.is_draft,
+        recruit_status=payload.recruit_status,
     )
     post.tags = await _get_or_create_tags(session, payload.tags)
     session.add(post)
@@ -137,6 +140,20 @@ async def list_my_drafts(session: SessionDep, current_user: CurrentUser) -> list
     return list(result.scalars().unique().all())
 
 
+@router.get("/applications/me", response_model=list[MyPostApplicationRead])
+async def list_my_applications(session: SessionDep, current_user: CurrentUser) -> list[dict]:
+    result = await session.execute(
+        select(PostApplication)
+        .where(PostApplication.user_id == current_user.id)
+        .options(
+            selectinload(PostApplication.user),
+            selectinload(PostApplication.post).selectinload(Post.tags),
+        )
+        .order_by(PostApplication.created_at.desc())
+    )
+    return [_application_read(application, include_post=True) for application in result.scalars().unique().all()]
+
+
 @router.get("/{post_id}/applications/me", response_model=PostApplicationStatus)
 async def get_my_application_status(
     post_id: uuid.UUID,
@@ -150,15 +167,36 @@ async def get_my_application_status(
     count = await session.scalar(
         select(func.count()).select_from(PostApplication).where(PostApplication.post_id == post_id)
     )
+    pending_count = await session.scalar(
+        select(func.count())
+        .select_from(PostApplication)
+        .where(PostApplication.post_id == post_id, PostApplication.status == "pending")
+    )
+    approved_count = await session.scalar(
+        select(func.count())
+        .select_from(PostApplication)
+        .where(PostApplication.post_id == post_id, PostApplication.status == "approved")
+    )
     if current_user is None:
-        return PostApplicationStatus(is_applied=False, count=count or 0)
+        return PostApplicationStatus(
+            is_applied=False,
+            count=count or 0,
+            pending_count=pending_count or 0,
+            approved_count=approved_count or 0,
+        )
     application = await session.scalar(
         select(PostApplication).where(
             PostApplication.post_id == post_id,
             PostApplication.user_id == current_user.id,
         )
     )
-    return PostApplicationStatus(is_applied=application is not None, count=count or 0)
+    return PostApplicationStatus(
+        is_applied=application is not None,
+        status=application.status if application is not None else None,
+        count=count or 0,
+        pending_count=pending_count or 0,
+        approved_count=approved_count or 0,
+    )
 
 
 @router.post("/{post_id}/applications", response_model=PostApplicationRead, status_code=status.HTTP_201_CREATED)
@@ -170,6 +208,8 @@ async def apply_to_post(
     post = await _get_post_or_404(session, post_id)
     if post.is_draft:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="임시저장 글에는 신청할 수 없습니다.")
+    if post.recruit_status == "closed":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="모집이 마감된 게시글입니다.")
     if post.user_id == current_user.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="내 게시글에는 신청할 수 없습니다.")
     application = await session.scalar(
@@ -223,6 +263,35 @@ async def list_applications(
         .order_by(PostApplication.created_at.asc())
     )
     return [_application_read(application) for application in result.scalars().all()]
+
+
+@router.patch("/{post_id}/applications/{application_id}", response_model=PostApplicationRead)
+async def update_application_status(
+    post_id: uuid.UUID,
+    application_id: int,
+    payload: PostApplicationUpdate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> dict:
+    next_status = payload.status
+    post = await _get_post_or_404(session, post_id)
+    _ensure_owner(post.user_id, current_user.id)
+    application = await session.scalar(
+        select(PostApplication)
+        .where(PostApplication.id == application_id, PostApplication.post_id == post_id)
+        .options(selectinload(PostApplication.user))
+    )
+    if application is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="신청 내역을 찾을 수 없습니다.")
+    application.status = next_status
+    await session.commit()
+    await session.refresh(application)
+    application = await session.scalar(
+        select(PostApplication)
+        .where(PostApplication.id == application_id)
+        .options(selectinload(PostApplication.user))
+    )
+    return _application_read(application)
 
 
 @router.post("/{post_id}/comments", response_model=CommentRead, status_code=status.HTTP_201_CREATED)
@@ -279,14 +348,18 @@ def _raise_not_found() -> None:
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="게시글을 찾을 수 없습니다.")
 
 
-def _application_read(application: PostApplication) -> dict:
-    return {
+def _application_read(application: PostApplication, include_post: bool = False) -> dict:
+    data = {
         "id": application.id,
         "post_id": application.post_id,
         "user_id": application.user_id,
         "user_nickname": application.user.nickname if application.user is not None else "CareerBuddy 사용자",
+        "status": application.status,
         "created_at": application.created_at,
     }
+    if include_post:
+        data["post"] = application.post
+    return data
 
 
 async def _get_or_create_tags(session: SessionDep, names: list[str]) -> list[Tag]:

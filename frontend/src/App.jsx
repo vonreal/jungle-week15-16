@@ -111,6 +111,7 @@ const EMPTY_DATA = {
   },
   posts: [],
   drafts: [],
+  applications: [],
   postsPage: { page: 1, size: 12, total: 0 },
   comments: [],
 };
@@ -143,7 +144,7 @@ function buildRadar(userSkills = []) {
   }));
 }
 
-function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage = null, drafts = []) {
+function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage = null, drafts = [], applications = []) {
   const base = {
     ...EMPTY_DATA,
     source: state?.source ?? "empty",
@@ -152,6 +153,7 @@ function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage 
     radar: buildRadar(userSkills),
     posts: postsPage?.items ?? [],
     drafts,
+    applications,
     postsPage: postsPage
       ? { page: postsPage.page, size: postsPage.size, total: postsPage.total }
       : EMPTY_DATA.postsPage,
@@ -181,13 +183,14 @@ function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage 
 }
 
 async function fetchAppState(currentUser = null) {
-  const [skillCatalog, userSkills, postsPage, drafts] = await Promise.all([
+  const [skillCatalog, userSkills, postsPage, drafts, applications] = await Promise.all([
     skillsApi.list(),
     currentUser ? skillsApi.mySkills() : Promise.resolve([]),
     postsApi.list({ page: 1, size: 50 }),
     currentUser ? postsApi.drafts() : Promise.resolve([]),
+    currentUser ? postsApi.myApplications() : Promise.resolve([]),
   ]);
-  return normalizeAppState(null, skillCatalog, userSkills, postsPage, drafts);
+  return normalizeAppState(null, skillCatalog, userSkills, postsPage, drafts, applications);
 }
 
 function formatDateTime(value) {
@@ -207,6 +210,16 @@ function postTagNames(post) {
 function postRole(post) {
   const tags = postTagNames(post);
   return tags.find((tag) => ROLE_COLORS[tag]) ?? "스터디";
+}
+
+function recruitStatusLabel(status) {
+  return status === "closed" ? "모집 마감" : "모집중";
+}
+
+function applicationStatusLabel(status) {
+  if (status === "approved") return "승인";
+  if (status === "rejected") return "거절";
+  return "대기";
 }
 
 function skillOptionsFromData(data) {
@@ -399,7 +412,7 @@ function Dashboard({ go, data, apiStatus, currentUser, onLogout, requireAuth }) 
   );
 }
 
-function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost }) {
+function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost, onAccountDeleted }) {
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
     nickname: currentUser.nickname,
@@ -414,8 +427,13 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost })
   const [passwordMessage, setPasswordMessage] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [passwordExpanded, setPasswordExpanded] = useState(false);
+  const [showAccountDeleteModal, setShowAccountDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deleteState, setDeleteState] = useState("idle");
   const myPosts = data.posts.filter((post) => post.user_id === currentUser?.id);
   const myDrafts = data.drafts ?? [];
+  const myApplications = data.applications ?? [];
   const enteredSkills = Object.values(data.skills)
     .flat()
     .filter((skill) => Number.isInteger(skill.lv));
@@ -510,6 +528,21 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost })
     } catch (event) {
       setPasswordError(event.message || "비밀번호 변경에 실패했습니다.");
       setPasswordState("idle");
+    }
+  };
+  const deleteAccount = async () => {
+    if (!deletePassword) {
+      setDeleteError("현재 비밀번호를 입력해주세요.");
+      return;
+    }
+    setDeleteState("saving");
+    setDeleteError("");
+    try {
+      await authApi.deleteMe({ current_password: deletePassword });
+      onAccountDeleted();
+    } catch (event) {
+      setDeleteError(event.message || "계정 탈퇴에 실패했습니다.");
+      setDeleteState("idle");
     }
   };
 
@@ -727,7 +760,77 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost })
             <EmptyState title="임시저장 글이 없습니다" description="글쓰기 화면에서 작성 중인 내용을 임시저장할 수 있습니다." />
           )}
         </div>
+
+        <div className="card">
+          <div className="card-title card-title-spaced">내 신청 내역</div>
+          {myApplications.length ? (
+            <div className="my-post-list">
+              {myApplications.slice(0, 6).map((application) => (
+                <button key={application.id} className="my-post-row" onClick={() => onSelectPost(application.post.id)} type="button">
+                  <div>
+                    <strong>{application.post.title}</strong>
+                    <span>
+                      {formatDateTime(application.created_at)} · {applicationStatusLabel(application.status)} · {recruitStatusLabel(application.post.recruit_status)}
+                    </span>
+                  </div>
+                  <span className={`status-badge app-${application.status}`}>{applicationStatusLabel(application.status)}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="신청한 스터디가 없습니다" description="스터디 모집 게시글에서 관심 있는 스터디에 신청해보세요." />
+          )}
+        </div>
+
+        <div className="card danger-zone">
+          <div>
+            <div className="card-title">계정 탈퇴</div>
+            <p className="card-sub compact">탈퇴하면 내 게시글, 댓글, 신청 내역이 함께 삭제됩니다.</p>
+          </div>
+          <button className="btn btn-danger btn-sm fit" onClick={() => setShowAccountDeleteModal(true)} type="button">
+            계정 탈퇴
+          </button>
+        </div>
       </div>
+      {showAccountDeleteModal && (
+        <div className="modal-backdrop" role="presentation">
+          <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
+            <div className="modal-icon danger"><Icon icon={X} size={18} /></div>
+            <h2 id="delete-account-title" className="modal-title">계정을 탈퇴할까요?</h2>
+            <p className="modal-desc">탈퇴 후에는 계정과 작성한 데이터를 되돌릴 수 없습니다.</p>
+            <div className="form-group modal-field">
+              <label className="field-lbl" htmlFor="account-delete-password">현재 비밀번호</label>
+              <PasswordInput
+                id="account-delete-password"
+                value={deletePassword}
+                onChange={(event) => {
+                  setDeletePassword(event.target.value);
+                  setDeleteError("");
+                }}
+                placeholder="현재 비밀번호"
+              />
+            </div>
+            {deleteError && <div className="auth-error">{deleteError}</div>}
+            <div className="modal-actions">
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  setShowAccountDeleteModal(false);
+                  setDeletePassword("");
+                  setDeleteError("");
+                }}
+                disabled={deleteState === "saving"}
+                type="button"
+              >
+                취소
+              </button>
+              <button className="btn btn-danger" onClick={deleteAccount} disabled={deleteState === "saving"} type="button">
+                {deleteState === "saving" ? "탈퇴 중" : "탈퇴"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1562,7 +1665,7 @@ function PostListScreen({ go, data, onSelectPost }) {
                   </div>
                   <div className="post-title-txt">{post.title}</div>
                 </div>
-                <div className="cond-badge">{post.is_public ? "공개 게시글" : "비공개 게시글"}</div>
+                <div className={`cond-badge recruit-${post.recruit_status ?? "open"}`}>{recruitStatusLabel(post.recruit_status)}</div>
                 <div className="post-meta">
                   <div className="author-row">
                     <div className="sm-av">CB</div>
@@ -1607,6 +1710,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
   const [applicationStatus, setApplicationStatus] = useState({ is_applied: false, count: 0 });
   const [applicants, setApplicants] = useState([]);
   const [applicationAction, setApplicationAction] = useState("idle");
+  const [updatingApplicationId, setUpdatingApplicationId] = useState(null);
   const loadPost = async () => {
     if (!selectedPostId) {
       setPost(null);
@@ -1696,6 +1800,31 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
       setApplicationAction("idle");
     }
   };
+  const toggleRecruitStatus = async () => {
+    if (!post || !canManagePost) return;
+    const nextRecruitStatus = post.recruit_status === "closed" ? "open" : "closed";
+    try {
+      const updated = await postsApi.update(post.id, { recruit_status: nextRecruitStatus });
+      setPost(updated);
+      notifyUnavailable(nextRecruitStatus === "closed" ? "모집을 마감했습니다." : "모집을 재개했습니다.");
+    } catch (event) {
+      notifyUnavailable(event.message || "모집 상태 변경에 실패했습니다.");
+    }
+  };
+  const updateApplicantStatus = async (applicationId, nextStatus) => {
+    if (!post || !canManagePost || updatingApplicationId) return;
+    setUpdatingApplicationId(applicationId);
+    try {
+      const updated = await postsApi.updateApplication(post.id, applicationId, { status: nextStatus });
+      setApplicants((prev) => prev.map((item) => (item.id === applicationId ? updated : item)));
+      const nextApplicationStatus = await postsApi.applicationStatus(post.id);
+      setApplicationStatus(nextApplicationStatus);
+    } catch (event) {
+      notifyUnavailable(event.message || "신청 상태 변경에 실패했습니다.");
+    } finally {
+      setUpdatingApplicationId(null);
+    }
+  };
   const cancelApplication = async () => {
     if (!post || !requireAuth("스터디 신청 취소는 로그인 후 사용할 수 있습니다.")) return;
     setApplicationAction("saving");
@@ -1749,6 +1878,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
                 <h1 className="post-detail-title">{post.title}</h1>
                 <div className="tag-row">
                   {post.is_draft && <span className="draft-badge">임시저장</span>}
+                  {!post.is_draft && <span className={`status-badge recruit-${post.recruit_status ?? "open"}`}>{recruitStatusLabel(post.recruit_status)}</span>}
                   <span className="role-badge" style={{ background: `${roleColor}18`, color: roleColor, borderColor: `${roleColor}30` }}>
                     {role}
                   </span>
@@ -1763,6 +1893,11 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
                     <Icon icon={Edit3} size={14} />
                     수정
                   </button>
+                  {!post.is_draft && (
+                    <button className="btn btn-secondary btn-sm" onClick={toggleRecruitStatus} type="button">
+                      {post.recruit_status === "closed" ? "모집 재개" : "모집 마감"}
+                    </button>
+                  )}
                   <button className="btn btn-danger btn-sm" onClick={() => setShowDeleteModal(true)} type="button">
                     <Icon icon={X} size={14} />
                     삭제
@@ -1772,7 +1907,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
             </div>
             <div className="post-detail-meta">
               <div className="author-row"><div className="sm-av">CB</div><span>CareerBuddy 사용자</span></div>
-              <span>·</span><span>{formatDateTime(post.created_at)}</span><span>·</span><span>조회 {post.view_count}</span><span>·</span><span>댓글 {comments.length}</span><span>·</span><span>신청 {applicationStatus.count}</span>
+              <span>·</span><span>{formatDateTime(post.created_at)}</span><span>·</span><span>조회 {post.view_count}</span><span>·</span><span>댓글 {comments.length}</span><span>·</span><span>신청 {applicationStatus.count}</span><span>·</span><span>승인 {applicationStatus.approved_count}</span>
             </div>
           </div>
           <div className="card post-body">
@@ -1835,14 +1970,37 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
               <button className="btn btn-secondary full-btn" disabled type="button">임시저장 글</button>
             ) : canManagePost ? (
               <div className="applicant-box">
-                <div className="applicant-summary">신청자 {applicationStatus.count}명</div>
+                <div className="applicant-summary">신청자 {applicationStatus.count}명 · 대기 {applicationStatus.pending_count}명 · 승인 {applicationStatus.approved_count}명</div>
                 {applicants.length ? (
                   applicants.map((item) => (
                     <div key={item.id} className="applicant-row">
                       <div className="sm-av">{item.user_nickname.slice(0, 1)}</div>
                       <div>
                         <strong>{item.user_nickname}</strong>
-                        <span>{formatDateTime(item.created_at)}</span>
+                        <span>{formatDateTime(item.created_at)} · {applicationStatusLabel(item.status)}</span>
+                      </div>
+                      <div className="applicant-actions">
+                        <span className={`status-badge app-${item.status}`}>{applicationStatusLabel(item.status)}</span>
+                        {item.status !== "approved" && (
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => updateApplicantStatus(item.id, "approved")}
+                            disabled={updatingApplicationId === item.id}
+                            type="button"
+                          >
+                            승인
+                          </button>
+                        )}
+                        {item.status !== "rejected" && (
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => updateApplicantStatus(item.id, "rejected")}
+                            disabled={updatingApplicationId === item.id}
+                            type="button"
+                          >
+                            거절
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))
@@ -1850,9 +2008,11 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
                   <p className="muted-sm">아직 신청자가 없습니다.</p>
                 )}
               </div>
+            ) : post.recruit_status === "closed" ? (
+              <button className="btn btn-secondary full-btn" disabled type="button">모집 마감</button>
             ) : applicationStatus.is_applied ? (
               <button className="btn btn-secondary full-btn" onClick={cancelApplication} disabled={applicationAction === "saving"} type="button">
-                {applicationAction === "saving" ? "처리 중" : "신청 취소"}
+                {applicationAction === "saving" ? "처리 중" : `신청 취소 (${applicationStatusLabel(applicationStatus.status)})`}
               </button>
             ) : (
               <button className="btn btn-primary full-btn" onClick={applyToPost} disabled={applicationAction === "saving"} type="button">
@@ -2219,6 +2379,15 @@ export default function App() {
     setNotice(null);
     setScreen("dashboard");
   };
+  const handleAccountDeleted = () => {
+    localStorage.removeItem("careerbuddy.token");
+    setCurrentUser(null);
+    setSelectedPostId(null);
+    setEditingPost(null);
+    setAppData(EMPTY_DATA);
+    setNotice({ id: Date.now(), kind: "info", message: "계정 탈퇴가 완료되었습니다." });
+    setScreen("dashboard");
+  };
   const openPost = (postId) => {
     setEditingPost(null);
     setSelectedPostId(postId);
@@ -2288,7 +2457,14 @@ export default function App() {
   const pages = {
     dashboard: <Dashboard go={go} data={appData} apiStatus={apiStatus} currentUser={currentUser} onLogout={logout} requireAuth={requireAuth} />,
     mypage: currentUser ? (
-      <MyPageScreen go={go} data={appData} currentUser={currentUser} onProfileUpdated={handleProfileUpdated} onSelectPost={openPost} />
+      <MyPageScreen
+        go={go}
+        data={appData}
+        currentUser={currentUser}
+        onProfileUpdated={handleProfileUpdated}
+        onSelectPost={openPost}
+        onAccountDeleted={handleAccountDeleted}
+      />
     ) : (
       <Dashboard go={go} data={appData} apiStatus={apiStatus} currentUser={currentUser} onLogout={logout} requireAuth={requireAuth} />
     ),
