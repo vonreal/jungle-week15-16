@@ -31,3 +31,20 @@ async def test_extract_experiences_ignores_skill_rubric(monkeypatch):
     assert all("Java (2)" not in experience for experience in experiences)
     assert any("전자정부프레임워크" in experience and "배포까지" in experience for experience in experiences)
     assert any("텔레그램 API" in experience for experience in experiences)
+
+
+def test_extract_skill_mentions_from_resume_without_rubric_noise():
+    raw_text = """
+02. 기본기 숙련도
+프로그래밍 언어 Java (2), JavaScript (2), Python (3)
+
+04. 프로젝트 경험
+Flutter로 모바일 앱을 개발하고 GitLab CI/CD로 배포 자동화를 구성했습니다.
+도커 환경에서 크론으로 웹 스크래핑 서버를 운영했습니다.
+"""
+
+    skills = DocumentParserService().extract_skill_mentions(raw_text)
+    skill_names = {skill["name"] for skill in skills}
+
+    assert {"Flutter", "GitLab", "CI/CD", "Docker", "Cron"}.issubset(skill_names)
+    assert "Java" not in skill_names

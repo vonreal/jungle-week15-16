@@ -7,6 +7,72 @@ from pathlib import Path
 
 from app.core.config import settings
 
+TECH_KEYWORDS = {
+    "언어": {
+        "Java": ["java"],
+        "Python": ["python", "파이썬"],
+        "JavaScript": ["javascript", "java script", "자바스크립트"],
+        "TypeScript": ["typescript", "type script", "타입스크립트"],
+        "C": ["c언어", " c ", " c,", " c.", " c/"],
+        "C++": ["c++", "cpp"],
+        "Swift": ["swift"],
+        "Kotlin": ["kotlin", "코틀린"],
+        "Dart": ["dart"],
+        "SQL": ["sql"],
+    },
+    "백엔드": {
+        "Spring": ["spring", "스프링"],
+        "Spring Boot": ["spring boot", "스프링 부트"],
+        "FastAPI": ["fastapi", "fast api"],
+        "Node.js": ["node.js", "node js", "nodejs"],
+        "Django": ["django"],
+        "Flask": ["flask"],
+        "JPA": ["jpa"],
+        "Redis": ["redis", "레디스"],
+        "Kafka": ["kafka", "카프카"],
+        "PostgreSQL": ["postgresql", "postgres"],
+        "MySQL": ["mysql"],
+        "SQLite": ["sqlite"],
+        "MongoDB": ["mongodb", "mongo db"],
+    },
+    "프론트엔드": {
+        "React": ["react", "리액트"],
+        "Vue": ["vue"],
+        "HTML": ["html"],
+        "CSS": ["css"],
+        "Tailwind CSS": ["tailwind"],
+    },
+    "모바일": {
+        "Flutter": ["flutter", "플러터"],
+        "iOS": ["ios"],
+        "Android": ["android", "안드로이드"],
+        "UIKit": ["uikit"],
+        "Storyboard": ["storyboard", "스토리보드"],
+        "Realm": ["realm"],
+        "WebSocket": ["websocket", "web socket", "웹소켓"],
+        "WebRTC": ["webrtc", "web rtc"],
+    },
+    "AI": {
+        "OpenAI API": ["openai api", "openai"],
+        "LangChain": ["langchain", "랭체인"],
+        "LangGraph": ["langgraph", "랭그래프"],
+        "RAG": ["rag", "검색 증강", "검색증강"],
+    },
+    "운영/협업": {
+        "Git": ["git"],
+        "GitHub": ["github", "깃허브"],
+        "GitLab": ["gitlab", "깃랩"],
+        "Docker": ["docker", "도커"],
+        "Kubernetes": ["kubernetes", "쿠버네티스", "k8s"],
+        "AWS": ["aws"],
+        "Nginx": ["nginx"],
+        "Linux": ["linux"],
+        "Unix": ["unix"],
+        "Cron": ["cron", "크론"],
+        "CI/CD": ["ci/cd", "cicd", "ci cd"],
+    },
+}
+
 
 class DocumentTextExtractorService:
     def extract_text(self, filename: str | None, body: bytes) -> str:
@@ -50,6 +116,30 @@ class DocumentParserService:
             return llm_experiences[:20]
 
         return self._extract_with_rules(cleaned_text)[:20]
+
+    def extract_skill_mentions(self, raw_text: str | None) -> list[dict[str, str]]:
+        if not raw_text:
+            return []
+
+        cleaned_text = self._remove_reference_sections(raw_text)
+        compact_text = re.sub(r"\s+", " ", cleaned_text).lower()
+        normalized = f" {compact_text} "
+        mentions: list[dict[str, str]] = []
+        seen: set[str] = set()
+        for category, skills in TECH_KEYWORDS.items():
+            for name, aliases in skills.items():
+                if name.lower() in seen:
+                    continue
+                if any(self._contains_skill_alias(normalized, alias) for alias in aliases):
+                    mentions.append(
+                        {
+                            "category": category,
+                            "name": name,
+                            "description": "이력서/포트폴리오에서 자동 감지된 기술입니다. 숙련도를 직접 확인해 조정하세요.",
+                        }
+                    )
+                    seen.add(name.lower())
+        return mentions
 
     async def _extract_with_llm(self, raw_text: str) -> list[str]:
         if not settings.openai_api_key:
@@ -163,6 +253,17 @@ class DocumentParserService:
             return False
         keywords = ["개발", "구현", "설계", "운영", "배포", "개선", "분석", "api", "자동화", "연동", "구축"]
         return any(key in lower for key in keywords)
+
+    def _contains_skill_alias(self, normalized_text: str, alias: str) -> bool:
+        normalized_alias = alias.lower().strip()
+        if re.fullmatch(r"[a-z0-9.+#/-]+", normalized_alias):
+            return bool(
+                re.search(
+                    rf"(?<![a-z0-9.+#/-]){re.escape(normalized_alias)}(?![a-z0-9.+#/-])",
+                    normalized_text,
+                )
+            )
+        return normalized_alias in normalized_text
 
     def _dedupe_experiences(self, experiences) -> list[str]:
         results: list[str] = []

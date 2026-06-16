@@ -3,10 +3,10 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from app.api.deps import CurrentUser, SessionDep
-from app.models import DocumentEmbedding, UserDocument, UserExperience
+from app.models import DocumentEmbedding, Skill, UserDocument, UserExperience, UserSkill
 from app.schemas.documents import DocumentCreate, DocumentRead, ExperienceRead, ExperienceUpdate
 from app.services.documents import DocumentParserService, DocumentTextExtractorService
 from app.services.rag import RAGService
@@ -24,6 +24,7 @@ async def create_document(
     session.add(document)
     await session.flush()
     await _extract_and_store_experiences(session, current_user.id, document)
+    await _extract_and_store_skills(session, current_user.id, document)
     await _store_document_chunks(session, document)
     await session.commit()
     await session.refresh(document)
@@ -59,6 +60,7 @@ async def upload_document(
     session.add(document)
     await session.flush()
     await _extract_and_store_experiences(session, current_user.id, document)
+    await _extract_and_store_skills(session, current_user.id, document)
     await _store_document_chunks(session, document)
     await session.commit()
     await session.refresh(document)
@@ -137,6 +139,34 @@ async def _extract_and_store_experiences(
     parser = DocumentParserService()
     for content in await parser.extract_experiences(document.raw_text):
         session.add(UserExperience(user_id=user_id, document_id=document.id, content=content))
+
+
+async def _extract_and_store_skills(
+    session: SessionDep,
+    user_id,
+    document: UserDocument,
+) -> None:
+    if document.type not in {"resume", "portfolio"}:
+        return
+
+    parser = DocumentParserService()
+    for mention in parser.extract_skill_mentions(document.raw_text):
+        skill = await session.scalar(
+            select(Skill).where(func.lower(Skill.name) == mention["name"].lower())
+        )
+        if skill is None:
+            skill = Skill(**mention)
+            session.add(skill)
+            await session.flush()
+
+        user_skill = await session.scalar(
+            select(UserSkill).where(
+                UserSkill.user_id == user_id,
+                UserSkill.skill_id == skill.id,
+            )
+        )
+        if user_skill is None:
+            session.add(UserSkill(user_id=user_id, skill_id=skill.id, level=1))
 
 
 async def _store_document_chunks(session: SessionDep, document: UserDocument) -> None:

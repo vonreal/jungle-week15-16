@@ -1292,7 +1292,7 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
       await documentsApi.upload(type, file);
       await onDocumentsChanged?.();
       setUploadState("saved");
-      setUploadMessage("업로드가 완료됐습니다. 추출된 경험을 확인해주세요.");
+      setUploadMessage("업로드가 완료됐습니다. 추출된 경험과 자동 추가된 스탯 후보를 확인해주세요.");
     } catch (error) {
       setUploadState("error");
       setUploadMessage(error.message || "파일 업로드에 실패했습니다.");
