@@ -232,6 +232,10 @@ class Post(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         cascade="all, delete-orphan",
     )
 
+    @property
+    def author_nickname(self) -> str:
+        return self.user.nickname if self.user is not None else "CareerBuddy 사용자"
+
 
 class PostStatRequirement(Base):
     __tablename__ = "post_stat_requirements"
@@ -257,6 +261,10 @@ class Comment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     post: Mapped[Post] = relationship(back_populates="comments")
     user: Mapped[User] = relationship()
+
+    @property
+    def user_nickname(self) -> str:
+        return self.user.nickname if self.user is not None else "CareerBuddy 사용자"
 
 
 class PostView(Base):

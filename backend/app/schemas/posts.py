@@ -54,12 +54,17 @@ class CommentCreate(BaseModel):
     content: str = Field(min_length=1)
 
 
+class CommentUpdate(BaseModel):
+    content: str = Field(min_length=1)
+
+
 class CommentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     post_id: uuid.UUID
     user_id: uuid.UUID
+    user_nickname: str
     content: str
     created_at: datetime
     updated_at: datetime
@@ -70,6 +75,7 @@ class PostRead(BaseModel):
 
     id: uuid.UUID
     user_id: uuid.UUID
+    author_nickname: str
     title: str
     content: str
     analysis_id: uuid.UUID | None

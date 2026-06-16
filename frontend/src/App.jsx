@@ -81,6 +81,10 @@ const JD_QUICK_LINKS = {
   배민: "https://career.woowahan.com",
 };
 
+function userInitial(name) {
+  return (name || "C").trim().slice(0, 1).toUpperCase();
+}
+
 const TONE_STYLE = {
   purple: { bg: "var(--purple-l)", c: "var(--purple)", bc: "var(--purple-m)" },
   blue: { bg: "var(--blue-l)", c: "var(--blue)", bc: "var(--blue-m)" },
@@ -412,7 +416,7 @@ function Dashboard({ go, data, apiStatus, currentUser, onLogout, requireAuth }) 
   );
 }
 
-function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost, onAccountDeleted }) {
+function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost, onAccountDeleted, onDataChanged, notifyUnavailable }) {
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
     nickname: currentUser.nickname,
@@ -431,6 +435,7 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost, o
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [deleteState, setDeleteState] = useState("idle");
+  const [cancelingApplicationId, setCancelingApplicationId] = useState(null);
   const myPosts = data.posts.filter((post) => post.user_id === currentUser?.id);
   const myDrafts = data.drafts ?? [];
   const myApplications = data.applications ?? [];
@@ -543,6 +548,19 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost, o
     } catch (event) {
       setDeleteError(event.message || "계정 탈퇴에 실패했습니다.");
       setDeleteState("idle");
+    }
+  };
+  const cancelMyApplication = async (application) => {
+    if (cancelingApplicationId) return;
+    setCancelingApplicationId(application.id);
+    try {
+      await postsApi.cancelApplication(application.post.id);
+      await onDataChanged({ label: "신청 취소됨", tone: "ok" });
+      notifyUnavailable("스터디 신청을 취소했습니다.");
+    } catch (event) {
+      notifyUnavailable(event.message || "스터디 신청 취소에 실패했습니다.");
+    } finally {
+      setCancelingApplicationId(null);
     }
   };
 
@@ -766,15 +784,27 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost, o
           {myApplications.length ? (
             <div className="my-post-list">
               {myApplications.slice(0, 6).map((application) => (
-                <button key={application.id} className="my-post-row" onClick={() => onSelectPost(application.post.id)} type="button">
+                <div key={application.id} className="my-post-row my-application-row">
                   <div>
-                    <strong>{application.post.title}</strong>
+                    <button className="my-post-title-btn" onClick={() => onSelectPost(application.post.id)} type="button">
+                      <strong>{application.post.title}</strong>
+                    </button>
                     <span>
                       {formatDateTime(application.created_at)} · {applicationStatusLabel(application.status)} · {recruitStatusLabel(application.post.recruit_status)}
                     </span>
                   </div>
-                  <span className={`status-badge app-${application.status}`}>{applicationStatusLabel(application.status)}</span>
-                </button>
+                  <div className="my-application-actions">
+                    <span className={`status-badge app-${application.status}`}>{applicationStatusLabel(application.status)}</span>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => cancelMyApplication(application)}
+                      disabled={cancelingApplicationId === application.id}
+                      type="button"
+                    >
+                      {cancelingApplicationId === application.id ? "취소 중" : "신청 취소"}
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           ) : (
@@ -1675,8 +1705,8 @@ function PostListScreen({ go, data, onSelectPost }) {
                 </div>
                 <div className="post-meta">
                   <div className="author-row">
-                    <div className="sm-av">CB</div>
-                    <span>CareerBuddy 사용자</span>
+                    <div className="sm-av">{userInitial(post.author_nickname)}</div>
+                    <span>{post.author_nickname}</span>
                     <span className="muted-xs">· {formatDateTime(post.created_at)}</span>
                   </div>
                   <div className="metric-row">
@@ -1712,6 +1742,9 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
   const [deletingCommentId, setDeletingCommentId] = useState(null);
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editingCommentContent, setEditingCommentContent] = useState("");
+  const [savingCommentId, setSavingCommentId] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeletingPost, setIsDeletingPost] = useState(false);
   const [applicationStatus, setApplicationStatus] = useState({ is_applied: false, count: 0 });
@@ -1780,6 +1813,32 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
       notifyUnavailable(event.message || "댓글 삭제에 실패했습니다.");
     } finally {
       setDeletingCommentId(null);
+    }
+  };
+  const startEditComment = (item) => {
+    setEditingCommentId(item.id);
+    setEditingCommentContent(item.content);
+  };
+  const cancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditingCommentContent("");
+  };
+  const saveCommentEdit = async (commentId) => {
+    if (!post || savingCommentId) return;
+    const content = editingCommentContent.trim();
+    if (!content) {
+      notifyUnavailable("댓글 내용을 입력해주세요.");
+      return;
+    }
+    setSavingCommentId(commentId);
+    try {
+      const updated = await postsApi.updateComment(post.id, commentId, { content });
+      setComments((prev) => prev.map((item) => (item.id === commentId ? updated : item)));
+      cancelEditComment();
+    } catch (event) {
+      notifyUnavailable(event.message || "댓글 수정에 실패했습니다.");
+    } finally {
+      setSavingCommentId(null);
     }
   };
   const deletePost = async () => {
@@ -1870,6 +1929,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
   const tags = postTagNames(post);
   const roleColor = ROLE_COLORS[role] ?? "#3B6FEF";
   const canManagePost = currentUser?.id === post.user_id;
+  const authorNickname = post.author_nickname || "CareerBuddy 사용자";
   return (
     <div className="screen">
       <div className="breadcrumb">
@@ -1913,7 +1973,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
               )}
             </div>
             <div className="post-detail-meta">
-              <div className="author-row"><div className="sm-av">CB</div><span>CareerBuddy 사용자</span></div>
+              <div className="author-row"><div className="sm-av">{userInitial(authorNickname)}</div><span>{authorNickname}</span></div>
               <span>·</span><span>{formatDateTime(post.created_at)}</span><span>·</span><span>조회 {post.view_count}</span><span>·</span><span>댓글 {comments.length}</span><span>·</span><span>신청 {applicationStatus.count}</span><span>·</span><span>승인 {applicationStatus.approved_count}</span>
             </div>
           </div>
@@ -1926,23 +1986,57 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
             <div className="card-title card-title-spaced">댓글 {comments.length}</div>
             {comments.length ? comments.map((item) => (
               <div key={item.id} className="comment-row">
-                <div className="sm-av">{currentUser?.id === item.user_id ? currentUser.nickname.slice(0, 1) : "CB"}</div>
+                <div className="sm-av">{userInitial(item.user_nickname)}</div>
                 <div className="grow">
                   <div className="comment-head">
-                    <strong>{currentUser?.id === item.user_id ? currentUser.nickname : "CareerBuddy 사용자"}</strong>
+                    <strong>{item.user_nickname}</strong>
                     <span>{formatDateTime(item.created_at)}</span>
                     {currentUser?.id === item.user_id && (
-                      <button
-                        className="comment-action"
-                        onClick={() => deleteComment(item.id)}
-                        disabled={deletingCommentId === item.id}
-                        type="button"
-                      >
-                        {deletingCommentId === item.id ? "삭제 중" : "삭제"}
-                      </button>
+                      <div className="comment-actions">
+                        {editingCommentId !== item.id && (
+                          <button
+                            className="comment-action neutral"
+                            onClick={() => startEditComment(item)}
+                            disabled={deletingCommentId === item.id}
+                            type="button"
+                          >
+                            수정
+                          </button>
+                        )}
+                        <button
+                          className="comment-action"
+                          onClick={() => deleteComment(item.id)}
+                          disabled={deletingCommentId === item.id || savingCommentId === item.id}
+                          type="button"
+                        >
+                          {deletingCommentId === item.id ? "삭제 중" : "삭제"}
+                        </button>
+                      </div>
                     )}
                   </div>
-                  <p>{item.content}</p>
+                  {editingCommentId === item.id ? (
+                    <div className="comment-edit-form">
+                      <input
+                        className="input"
+                        value={editingCommentContent}
+                        onChange={(event) => setEditingCommentContent(event.target.value)}
+                        placeholder="댓글을 입력하세요"
+                      />
+                      <div className="comment-edit-actions">
+                        <button className="btn btn-secondary btn-sm" onClick={cancelEditComment} disabled={savingCommentId === item.id} type="button">취소</button>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => saveCommentEdit(item.id)}
+                          disabled={savingCommentId === item.id || !editingCommentContent.trim()}
+                          type="button"
+                        >
+                          {savingCommentId === item.id ? "저장 중" : "저장"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p>{item.content}</p>
+                  )}
                 </div>
               </div>
             )) : <EmptyState title="댓글이 없습니다" description="첫 댓글을 남겨보세요." />}
@@ -1955,7 +2049,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
         <aside className="screen-stack">
           <div className="card">
             <div className="card-title card-title-spaced">작성자</div>
-            <div className="profile-row"><div className="avatar">CB</div><div><strong>CareerBuddy 사용자</strong><span>커뮤니티 게시글 작성자</span></div></div>
+            <div className="profile-row"><div className="avatar">{userInitial(authorNickname)}</div><div><strong>{authorNickname}</strong><span>커뮤니티 게시글 작성자</span></div></div>
             <div className="card-title mini-title">스탯 요약</div>
             {data.radar.slice(0, 4).map((item) => (
               <div key={item.label} className="mini-stat">
@@ -2471,6 +2565,8 @@ export default function App() {
         onProfileUpdated={handleProfileUpdated}
         onSelectPost={openPost}
         onAccountDeleted={handleAccountDeleted}
+        onDataChanged={(status) => reloadAppData(currentUser, status)}
+        notifyUnavailable={notifyUnavailable}
       />
     ) : (
       <Dashboard go={go} data={appData} apiStatus={apiStatus} currentUser={currentUser} onLogout={logout} requireAuth={requireAuth} />

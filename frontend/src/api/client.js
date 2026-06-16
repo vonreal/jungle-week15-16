@@ -92,6 +92,7 @@ export const postsApi = {
   updateApplication: (postId, applicationId, payload) => apiFetch(`/posts/${postId}/applications/${applicationId}`, { method: "PATCH", body: JSON.stringify(payload) }),
   comments: (postId) => apiFetch(`/posts/${postId}/comments`),
   createComment: (postId, payload) => apiFetch(`/posts/${postId}/comments`, { method: "POST", body: JSON.stringify(payload) }),
+  updateComment: (postId, commentId, payload) => apiFetch(`/posts/${postId}/comments/${commentId}`, { method: "PATCH", body: JSON.stringify(payload) }),
   deleteComment: (postId, commentId) => apiFetch(`/posts/${postId}/comments/${commentId}`, { method: "DELETE" }),
 };
 

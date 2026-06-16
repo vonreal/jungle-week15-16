@@ -11,6 +11,7 @@ from app.models import Comment, Post, PostApplication, PostStatRequirement, Post
 from app.schemas.posts import (
     CommentCreate,
     CommentRead,
+    CommentUpdate,
     MyPostApplicationRead,
     PostApplicationRead,
     PostApplicationStatus,
@@ -32,7 +33,11 @@ async def list_posts(
     search: str | None = None,
     tag: str | None = None,
 ) -> PostPage:
-    stmt = select(Post).where(Post.is_public.is_(True), Post.is_draft.is_(False)).options(selectinload(Post.tags))
+    stmt = (
+        select(Post)
+        .where(Post.is_public.is_(True), Post.is_draft.is_(False))
+        .options(selectinload(Post.tags), selectinload(Post.user))
+    )
     if search:
         like = f"%{search}%"
         stmt = stmt.where(or_(Post.title.ilike(like), Post.content.ilike(like)))
@@ -134,7 +139,7 @@ async def list_my_drafts(session: SessionDep, current_user: CurrentUser) -> list
     result = await session.execute(
         select(Post)
         .where(Post.user_id == current_user.id, Post.is_draft.is_(True))
-        .options(selectinload(Post.tags))
+        .options(selectinload(Post.tags), selectinload(Post.user))
         .order_by(Post.updated_at.desc())
     )
     return list(result.scalars().unique().all())
@@ -148,6 +153,7 @@ async def list_my_applications(session: SessionDep, current_user: CurrentUser) -
         .options(
             selectinload(PostApplication.user),
             selectinload(PostApplication.post).selectinload(Post.tags),
+            selectinload(PostApplication.post).selectinload(Post.user),
         )
         .order_by(PostApplication.created_at.desc())
     )
@@ -305,17 +311,48 @@ async def create_comment(
     comment = Comment(post_id=post_id, user_id=current_user.id, content=payload.content)
     session.add(comment)
     await session.commit()
-    await session.refresh(comment)
-    return comment
+    result = await session.execute(
+        select(Comment)
+        .where(Comment.id == comment.id)
+        .options(selectinload(Comment.user))
+    )
+    return result.scalar_one()
 
 
 @router.get("/{post_id}/comments", response_model=list[CommentRead])
 async def list_comments(post_id: uuid.UUID, session: SessionDep) -> list[Comment]:
     await _get_post_or_404(session, post_id)
     result = await session.execute(
-        select(Comment).where(Comment.post_id == post_id).order_by(Comment.created_at.asc())
+        select(Comment)
+        .where(Comment.post_id == post_id)
+        .options(selectinload(Comment.user))
+        .order_by(Comment.created_at.asc())
     )
     return list(result.scalars().all())
+
+
+@router.patch("/{post_id}/comments/{comment_id}", response_model=CommentRead)
+async def update_comment(
+    post_id: uuid.UUID,
+    comment_id: uuid.UUID,
+    payload: CommentUpdate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Comment:
+    comment = await session.get(Comment, comment_id)
+    if comment is None or comment.post_id != post_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="댓글을 찾을 수 없습니다.")
+    _ensure_owner(comment.user_id, current_user.id)
+    comment.content = payload.content.strip()
+    if not comment.content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="댓글 내용을 입력해주세요.")
+    await session.commit()
+    result = await session.execute(
+        select(Comment)
+        .where(Comment.id == comment_id)
+        .options(selectinload(Comment.user))
+    )
+    return result.scalar_one()
 
 
 @router.delete("/{post_id}/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -336,7 +373,7 @@ async def delete_comment(
 
 async def _get_post_or_404(session: SessionDep, post_id: uuid.UUID) -> Post:
     result = await session.execute(
-        select(Post).where(Post.id == post_id).options(selectinload(Post.tags))
+        select(Post).where(Post.id == post_id).options(selectinload(Post.tags), selectinload(Post.user))
     )
     post = result.scalar_one_or_none()
     if post is None:
