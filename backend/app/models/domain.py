@@ -65,6 +65,30 @@ class UserSkill(TimestampMixin, Base):
     skill: Mapped[Skill] = relationship(back_populates="user_skills")
 
 
+class SkillSuggestion(TimestampMixin, Base):
+    __tablename__ = "skill_suggestions"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending','accepted','ignored')",
+            name="ck_skill_suggestions_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    document_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("user_documents.id", ondelete="SET NULL"),
+    )
+    category: Mapped[str] = mapped_column(String(40), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(30), default="document", server_default="document", nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", server_default="pending", nullable=False)
+
+    user: Mapped[User] = relationship()
+    document: Mapped[UserDocument | None] = relationship()
+
+
 class UserDocument(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "user_documents"
     __table_args__ = (

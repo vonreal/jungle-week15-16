@@ -6,8 +6,16 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, SessionDep
-from app.models import Skill, UserSkill
-from app.schemas.skills import RadarPoint, SkillRead, UserSkillCreate, UserSkillRead, UserSkillUpsert
+from app.models import Skill, SkillSuggestion, UserSkill
+from app.schemas.skills import (
+    RadarPoint,
+    SkillRead,
+    SkillSuggestionAccept,
+    SkillSuggestionRead,
+    UserSkillCreate,
+    UserSkillRead,
+    UserSkillUpsert,
+)
 from app.seeds.skills import INITIAL_SKILLS
 
 router = APIRouter()
@@ -51,6 +59,22 @@ async def my_skills(session: SessionDep, current_user: CurrentUser) -> list[dict
     ]
 
 
+@router.get("/suggestions", response_model=list[SkillSuggestionRead])
+async def list_skill_suggestions(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> list[SkillSuggestion]:
+    result = await session.execute(
+        select(SkillSuggestion)
+        .where(
+            SkillSuggestion.user_id == current_user.id,
+            SkillSuggestion.status == "pending",
+        )
+        .order_by(SkillSuggestion.created_at.desc(), SkillSuggestion.id.desc())
+    )
+    return list(result.scalars().all())
+
+
 @router.put("/me", response_model=list[UserSkillRead])
 async def upsert_my_skills(
     payload: list[UserSkillUpsert],
@@ -76,6 +100,60 @@ async def upsert_my_skills(
             user_skill.level = item.level
     await session.commit()
     return await my_skills(session, current_user)
+
+
+@router.post("/suggestions/{suggestion_id}/accept", response_model=list[UserSkillRead])
+async def accept_skill_suggestion(
+    suggestion_id: int,
+    payload: SkillSuggestionAccept,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> list[dict]:
+    suggestion = await session.get(SkillSuggestion, suggestion_id)
+    if suggestion is None or suggestion.user_id != current_user.id:
+        return await my_skills(session, current_user)
+    if suggestion.status != "pending":
+        return await my_skills(session, current_user)
+
+    skill = await session.scalar(
+        select(Skill).where(Skill.category == suggestion.category, Skill.name == suggestion.name)
+    )
+    if skill is None:
+        skill = Skill(
+            category=suggestion.category,
+            name=suggestion.name,
+            description=suggestion.description,
+        )
+        session.add(skill)
+        await session.flush()
+
+    user_skill = await session.scalar(
+        select(UserSkill).where(
+            UserSkill.user_id == current_user.id,
+            UserSkill.skill_id == skill.id,
+        )
+    )
+    if user_skill is None:
+        session.add(UserSkill(user_id=current_user.id, skill_id=skill.id, level=payload.level))
+    else:
+        user_skill.level = payload.level
+
+    suggestion.status = "accepted"
+    await session.commit()
+    return await my_skills(session, current_user)
+
+
+@router.delete("/suggestions/{suggestion_id}", response_model=list[SkillSuggestionRead])
+async def ignore_skill_suggestion(
+    suggestion_id: int,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> list[SkillSuggestion]:
+    suggestion = await session.get(SkillSuggestion, suggestion_id)
+    if suggestion is not None and suggestion.user_id == current_user.id:
+        suggestion.status = "ignored"
+        await session.commit()
+    return await list_skill_suggestions(session, current_user)
 
 
 @router.post("/me", response_model=list[UserSkillRead], status_code=status.HTTP_201_CREATED)

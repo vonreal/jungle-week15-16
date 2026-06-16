@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import uuid
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -22,6 +25,24 @@ class UserSkillCreate(BaseModel):
     category: str = Field(min_length=1, max_length=40)
     level: int = Field(ge=1, le=4)
     description: str | None = None
+
+
+class SkillSuggestionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: uuid.UUID
+    document_id: uuid.UUID | None
+    category: str
+    name: str
+    description: str | None
+    source: str
+    status: str
+    created_at: datetime
+
+
+class SkillSuggestionAccept(BaseModel):
+    level: int = Field(ge=1, le=4)
 
 
 class UserSkillRead(BaseModel):

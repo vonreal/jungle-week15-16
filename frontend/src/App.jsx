@@ -267,6 +267,7 @@ const EMPTY_DATA = {
   comments: [],
   documents: [],
   experiences: [],
+  skillSuggestions: [],
 };
 
 function buildSkillsByCategory(skillCatalog = [], userSkills = []) {
@@ -368,6 +369,7 @@ function normalizeAppState(
   analyses = [],
   documents = [],
   experiences = [],
+  skillSuggestions = [],
 ) {
   const base = {
     ...EMPTY_DATA,
@@ -383,6 +385,7 @@ function normalizeAppState(
     applications,
     documents,
     experiences,
+    skillSuggestions,
     postsPage: postsPage
       ? { page: postsPage.page, size: postsPage.size, total: postsPage.total }
       : EMPTY_DATA.postsPage,
@@ -411,13 +414,15 @@ function normalizeAppState(
     comments: state.comments ?? [],
     documents: state.documents ?? base.documents,
     experiences: state.experiences ?? base.experiences,
+    skillSuggestions: state.skillSuggestions ?? base.skillSuggestions,
   };
 }
 
 async function fetchAppState(currentUser = null) {
-  const [skillCatalog, userSkills, postsPage, drafts, applications, analyses, documents, experiences] = await Promise.all([
+  const [skillCatalog, userSkills, skillSuggestions, postsPage, drafts, applications, analyses, documents, experiences] = await Promise.all([
     skillsApi.list(),
     currentUser ? skillsApi.mySkills() : Promise.resolve([]),
+    currentUser ? skillsApi.suggestions() : Promise.resolve([]),
     postsApi.list({ page: 1, size: 50 }),
     currentUser ? postsApi.drafts() : Promise.resolve([]),
     currentUser ? postsApi.myApplications() : Promise.resolve([]),
@@ -425,7 +430,18 @@ async function fetchAppState(currentUser = null) {
     currentUser ? documentsApi.list() : Promise.resolve([]),
     currentUser ? documentsApi.experiences() : Promise.resolve([]),
   ]);
-  return normalizeAppState(null, skillCatalog, userSkills, postsPage, drafts, applications, analyses, documents, experiences);
+  return normalizeAppState(
+    null,
+    skillCatalog,
+    userSkills,
+    postsPage,
+    drafts,
+    applications,
+    analyses,
+    documents,
+    experiences,
+    skillSuggestions,
+  );
 }
 
 function formatDateTime(value) {
@@ -1227,6 +1243,8 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
   const [manualSkillLevel, setManualSkillLevel] = useState(1);
   const [manualSkillState, setManualSkillState] = useState("idle");
   const [manualSkillMessage, setManualSkillMessage] = useState("");
+  const [suggestionLevels, setSuggestionLevels] = useState({});
+  const [processingSuggestionId, setProcessingSuggestionId] = useState(null);
   const [showAllExperiences, setShowAllExperiences] = useState(false);
   const [documentDeleteTarget, setDocumentDeleteTarget] = useState(null);
   const [experienceDeleteTarget, setExperienceDeleteTarget] = useState(null);
@@ -1251,6 +1269,15 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
     setManualSkillCategory((current) => (nextCats.includes(current) ? current : nextCats[0] ?? "언어"));
     setDirty(false);
   }, [sourceSkills]);
+  useEffect(() => {
+    setSuggestionLevels((current) => {
+      const next = {};
+      data.skillSuggestions.forEach((suggestion) => {
+        next[suggestion.id] = current[suggestion.id] ?? 1;
+      });
+      return next;
+    });
+  }, [data.skillSuggestions]);
   const update = (name, lv) => {
     setSkills((prev) => ({
       ...prev,
@@ -1329,6 +1356,34 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
     } catch (error) {
       setManualSkillState("error");
       setManualSkillMessage(error.message || "기술 추가에 실패했습니다.");
+    }
+  };
+  const acceptSuggestion = async (suggestion) => {
+    setProcessingSuggestionId(suggestion.id);
+    try {
+      await skillsApi.acceptSuggestion(suggestion.id, { level: suggestionLevels[suggestion.id] ?? 1 });
+      await onSaved();
+      setManualSkillState("saved");
+      setManualSkillMessage(`${suggestion.name} 스탯을 추가했습니다.`);
+    } catch (error) {
+      setManualSkillState("error");
+      setManualSkillMessage(error.message || "후보 추가에 실패했습니다.");
+    } finally {
+      setProcessingSuggestionId(null);
+    }
+  };
+  const ignoreSuggestion = async (suggestion) => {
+    setProcessingSuggestionId(suggestion.id);
+    try {
+      await skillsApi.ignoreSuggestion(suggestion.id);
+      await onSaved();
+      setManualSkillState("saved");
+      setManualSkillMessage(`${suggestion.name} 후보를 무시했습니다.`);
+    } catch (error) {
+      setManualSkillState("error");
+      setManualSkillMessage(error.message || "후보 무시에 실패했습니다.");
+    } finally {
+      setProcessingSuggestionId(null);
     }
   };
   const deleteDocument = async () => {
@@ -1476,6 +1531,59 @@ function StatsScreen({ data, onSaved, onDocumentsChanged, requireAuth, notifyUna
             </button>
           </div>
           {manualSkillMessage && <div className={`upload-message ${manualSkillState}`}>{manualSkillMessage}</div>}
+        </div>
+
+        <div className="card">
+          <div className="card-title">자동 감지 스탯 후보</div>
+          <p className="card-sub">이력서/포트폴리오에서 감지된 기술입니다. 맞는 항목만 숙련도를 선택해 추가하세요</p>
+          {data.skillSuggestions.length ? (
+            <div className="skill-suggestion-list">
+              {data.skillSuggestions.map((suggestion) => (
+                <div key={suggestion.id} className="skill-suggestion-row">
+                  <div className="skill-suggestion-main">
+                    <strong>{suggestion.name}</strong>
+                    <span>{suggestion.category} · {suggestion.description || "문서에서 자동 감지된 기술입니다."}</span>
+                  </div>
+                  <div className="skill-suggestion-actions">
+                    <select
+                      className="input-control compact-select"
+                      value={suggestionLevels[suggestion.id] ?? 1}
+                      onChange={(event) => {
+                        const level = Number(event.target.value);
+                        setSuggestionLevels((current) => ({ ...current, [suggestion.id]: level }));
+                      }}
+                      aria-label={`${suggestion.name} 숙련도`}
+                    >
+                      {LV_LABELS.map((label, index) => (
+                        <option key={label} value={index + 1}>{label}</option>
+                      ))}
+                    </select>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => acceptSuggestion(suggestion)}
+                      disabled={processingSuggestionId === suggestion.id}
+                      type="button"
+                    >
+                      추가
+                    </button>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => ignoreSuggestion(suggestion)}
+                      disabled={processingSuggestionId === suggestion.id}
+                      type="button"
+                    >
+                      무시
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="검토할 스탯 후보가 없습니다"
+              description="문서를 업로드하면 자동 감지된 기술 후보가 여기에 쌓입니다."
+            />
+          )}
         </div>
 
         <div className="card">

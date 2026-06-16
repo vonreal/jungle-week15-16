@@ -6,7 +6,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, 
 from sqlalchemy import delete, func, select
 
 from app.api.deps import CurrentUser, SessionDep
-from app.models import DocumentEmbedding, Skill, UserDocument, UserExperience, UserSkill
+from app.models import DocumentEmbedding, Skill, SkillSuggestion, UserDocument, UserExperience, UserSkill
 from app.schemas.documents import DocumentCreate, DocumentRead, ExperienceRead, ExperienceUpdate
 from app.services.documents import DocumentParserService, DocumentTextExtractorService
 from app.services.rag import RAGService
@@ -154,19 +154,39 @@ async def _extract_and_store_skills(
         skill = await session.scalar(
             select(Skill).where(func.lower(Skill.name) == mention["name"].lower())
         )
-        if skill is None:
-            skill = Skill(**mention)
-            session.add(skill)
-            await session.flush()
+        if skill is not None:
+            user_skill = await session.scalar(
+                select(UserSkill).where(
+                    UserSkill.user_id == user_id,
+                    UserSkill.skill_id == skill.id,
+                )
+            )
+            if user_skill is not None:
+                continue
 
-        user_skill = await session.scalar(
-            select(UserSkill).where(
-                UserSkill.user_id == user_id,
-                UserSkill.skill_id == skill.id,
+        existing_suggestion = await session.scalar(
+            select(SkillSuggestion).where(
+                SkillSuggestion.user_id == user_id,
+                func.lower(SkillSuggestion.name) == mention["name"].lower(),
+                SkillSuggestion.status == "pending",
             )
         )
-        if user_skill is None:
-            session.add(UserSkill(user_id=user_id, skill_id=skill.id, level=1))
+        if existing_suggestion is not None:
+            existing_suggestion.document_id = document.id
+            existing_suggestion.category = mention["category"]
+            existing_suggestion.description = mention["description"]
+            continue
+
+        session.add(
+            SkillSuggestion(
+                user_id=user_id,
+                document_id=document.id,
+                category=mention["category"],
+                name=mention["name"],
+                description=mention["description"],
+                source="document",
+            )
+        )
 
 
 async def _store_document_chunks(session: SessionDep, document: UserDocument) -> None:

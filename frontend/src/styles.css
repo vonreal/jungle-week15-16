@@ -182,6 +182,13 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .manual-skill-card { display: flex; flex-direction: column; gap: 12px; }
 .manual-skill-form { display: grid; grid-template-columns: 150px minmax(220px, 1fr) 150px auto; gap: 8px; align-items: center; }
 .compact-select { min-width: 0; }
+.skill-suggestion-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.skill-suggestion-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); }
+.skill-suggestion-main { min-width: 0; }
+.skill-suggestion-main strong { display: block; font-size: 13.5px; color: var(--text); overflow-wrap: anywhere; }
+.skill-suggestion-main span { display: block; margin-top: 3px; color: var(--text3); font-size: 12px; line-height: 1.4; }
+.skill-suggestion-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
+.skill-suggestion-actions .compact-select { width: 120px; }
 .save-message { font-size: 12.5px; font-weight: 700; color: var(--text3); }
 .save-message.idle { color: var(--text3); }
 .save-message.saving { color: var(--blue); }
@@ -527,6 +534,8 @@ button:disabled { cursor: not-allowed; opacity: .58; }
   .score-box { text-align: left; }
   .skill-item { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .manual-skill-form { grid-template-columns: minmax(0, 1fr); }
+  .skill-suggestion-row { align-items: stretch; flex-direction: column; }
+  .skill-suggestion-actions { justify-content: flex-start; flex-wrap: wrap; }
   .skill-lv-label { text-align: left; }
   .sv-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .sv-label { text-align: left; }
