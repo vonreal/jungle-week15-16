@@ -1732,7 +1732,7 @@ function PostListScreen({ go, data, onSelectPost }) {
   );
 }
 
-function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, onDeleted, requireAuth, notifyUnavailable }) {
+function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, onDeleted, onPostUpdated, requireAuth, notifyUnavailable }) {
   const [comment, setComment] = useState("");
   const [post, setPost] = useState(null);
   const [comments, setComments] = useState([]);
@@ -1869,6 +1869,7 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
     try {
       const updated = await postsApi.update(post.id, { recruit_status: nextRecruitStatus });
       setPost(updated);
+      await onPostUpdated(updated, nextRecruitStatus === "closed" ? "모집 마감됨" : "모집 재개됨");
       notifyUnavailable(nextRecruitStatus === "closed" ? "모집을 마감했습니다." : "모집을 재개했습니다.");
     } catch (event) {
       notifyUnavailable(event.message || "모집 상태 변경에 실패했습니다.");
@@ -2508,6 +2509,17 @@ export default function App() {
     await reloadAppData(currentUser, { label: "게시글 삭제됨", tone: "ok" });
     setScreen("posts");
   };
+  const handlePostUpdated = async (updatedPost, label = "게시글 갱신됨") => {
+    setAppData((prev) => ({
+      ...prev,
+      posts: prev.posts.map((post) => (post.id === updatedPost.id ? updatedPost : post)),
+      drafts: prev.drafts.map((post) => (post.id === updatedPost.id ? updatedPost : post)),
+      applications: prev.applications.map((application) => (
+        application.post?.id === updatedPost.id ? { ...application, post: updatedPost } : application
+      )),
+    }));
+    await reloadAppData(currentUser, { label, tone: "ok" });
+  };
   const handleProfileUpdated = async (updatedUser) => {
     setCurrentUser(updatedUser);
     await reloadAppData(updatedUser, { label: "프로필 저장됨", tone: "ok" });
@@ -2581,7 +2593,7 @@ export default function App() {
     analysis: <AnalysisScreen go={go} data={appData} />,
     portfolio: <PortfolioScreen data={appData} />,
     posts: <PostListScreen go={go} data={appData} onSelectPost={openPost} />,
-    "post-detail": <PostDetailScreen go={go} data={appData} selectedPostId={selectedPostId} currentUser={currentUser} onEditPost={editPost} onDeleted={handlePostDeleted} requireAuth={requireAuth} notifyUnavailable={notifyUnavailable} />,
+    "post-detail": <PostDetailScreen go={go} data={appData} selectedPostId={selectedPostId} currentUser={currentUser} onEditPost={editPost} onDeleted={handlePostDeleted} onPostUpdated={handlePostUpdated} requireAuth={requireAuth} notifyUnavailable={notifyUnavailable} />,
     "post-write": <WritePostScreen go={go} data={appData} editingPost={editingPost} onSaved={handlePostSaved} notifyUnavailable={notifyUnavailable} />,
   };
 
