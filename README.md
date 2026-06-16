@@ -8,7 +8,7 @@
 - Backend: FastAPI + SQLAlchemy + Alembic
 - DB: PostgreSQL + pgvector
 - RAG/Agent: LangChain + LangGraph
-- MCP: MCP Python SDK 연동 경계 포함
+- MCP: MCP Python SDK stdio tool server
 - Deployment: AWS EC2 + Docker Compose
 - CI/CD: GitHub Actions workflow draft는 아직 커밋하지 않음
 
@@ -43,6 +43,7 @@ curl -X POST http://localhost:8000/api/v1/skills/seed
 - skills 시딩, 내 스탯 입력/조회, 레이더 차트 UI
 - 문서 업로드와 규칙 기반 경험 추출
 - JD 링크/텍스트/이미지 입력 API
+- MCP Python SDK 기반 채용공고 링크 크롤링 도구(`fetch_job_posting`)
 - JD 요구사항 추출, 갭 요약, 경험 3분류
 - pgvector 기반 RAG 저장/검색 경계
 - LangGraph Agent 기반 포트폴리오 추천 경계
