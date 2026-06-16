@@ -2475,13 +2475,15 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
           <div className="score">{analysis.score}%</div>
           <div className="score-label">매칭 스코어</div>
           {analysis.scoreHint && <div className="score-hint">{analysis.scoreHint}</div>}
-          <button className="btn btn-primary btn-sm" onClick={() => go("portfolio")} type="button">
-            포트폴리오 추천
-            <Icon icon={ArrowRight} size={14} />
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => reanalyze(analysis)} type="button">
-            {analysis.needsReanalysis ? "업데이트 정보로 재분석" : "다시 분석"}
-          </button>
+          <div className="score-actions">
+            <button className="btn btn-primary btn-sm" onClick={() => go("portfolio")} type="button">
+              포트폴리오 추천
+              <Icon icon={ArrowRight} size={14} />
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => reanalyze(analysis)} type="button">
+              {analysis.needsReanalysis ? "업데이트 정보로 재분석" : "다시 분석"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -3831,6 +3833,7 @@ export default function App() {
   const [apiStatus, setApiStatus] = useState({ label: "API 연결 중", tone: "loading" });
   const [notice, setNotice] = useState(null);
   const [globalLoading, setGlobalLoading] = useState(null);
+  const dataGenerationRef = useRef(0);
   const showNotice = (message, kind = "info") => {
     setNotice({ id: Date.now(), kind, message });
   };
@@ -3853,27 +3856,45 @@ export default function App() {
     setNotice(null);
     setScreen(id);
   };
-  const reloadAppData = async (user = currentUser, status = { label: "DB 연결됨 · 데이터 없음", tone: "ok" }) => {
+  const reloadAppData = async (
+    user = currentUser,
+    status = { label: "DB 연결됨 · 데이터 없음", tone: "ok" },
+    generation = dataGenerationRef.current,
+  ) => {
     const data = await fetchAppState(user);
+    if (generation !== dataGenerationRef.current) return;
     setAppData(data);
     setApiStatus(status);
   };
   const authenticate = (token) => {
+    const generation = dataGenerationRef.current + 1;
+    dataGenerationRef.current = generation;
     localStorage.setItem("careerbuddy.token", token.access_token);
     setCurrentUser(token.user);
-    reloadAppData(token.user, { label: "내 계정 데이터", tone: "ok" }).catch(() => {
+    reloadAppData(token.user, { label: "내 계정 데이터", tone: "ok" }, generation).catch(() => {
+      if (generation !== dataGenerationRef.current) return;
       setApiStatus({ label: "내 데이터 로드 실패", tone: "error" });
     });
   };
   const logout = () => {
+    const generation = dataGenerationRef.current + 1;
+    dataGenerationRef.current = generation;
     localStorage.removeItem("careerbuddy.token");
     setCurrentUser(null);
     setSelectedPostId(null);
     setEditingPost(null);
+    setAppData(EMPTY_DATA);
+    setApiStatus({ label: "로그인 전 상태", tone: "ok" });
     setNotice(null);
     setScreen("dashboard");
+    reloadAppData(null, { label: "DB 연결됨 · 데이터 없음", tone: "ok" }, generation).catch(() => {
+      if (generation !== dataGenerationRef.current) return;
+      setAppData(EMPTY_DATA);
+      setApiStatus({ label: "API 연결 실패 · 빈 상태", tone: "error" });
+    });
   };
   const handleAccountDeleted = () => {
+    dataGenerationRef.current += 1;
     localStorage.removeItem("careerbuddy.token");
     setCurrentUser(null);
     setSelectedPostId(null);
@@ -3935,6 +3956,7 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
+    const generation = dataGenerationRef.current;
     async function loadDemoData() {
       try {
         const savedToken = localStorage.getItem("careerbuddy.token");
@@ -3947,12 +3969,12 @@ export default function App() {
           }
         }
         const data = await fetchAppState(user);
-        if (!active) return;
+        if (!active || generation !== dataGenerationRef.current) return;
         setCurrentUser(user);
         setAppData(data);
         setApiStatus({ label: user ? "내 계정 데이터" : "DB 연결됨 · 데이터 없음", tone: "ok" });
       } catch (error) {
-        if (!active) return;
+        if (!active || generation !== dataGenerationRef.current) return;
         setAppData(EMPTY_DATA);
         setApiStatus({ label: "API 연결 실패 · 빈 상태", tone: "error" });
       }
