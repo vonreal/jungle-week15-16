@@ -636,7 +636,7 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost })
             </div>
             {!passwordExpanded && (
               <button className="btn btn-secondary btn-sm" onClick={() => setPasswordExpanded(true)} type="button">
-                변경 활성화
+                변경하기
               </button>
             )}
           </div>
