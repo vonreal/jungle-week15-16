@@ -1729,9 +1729,8 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
           <div className="gap-grid">
             {analysis.gaps.map((gap) => (
               <div key={gap.name} className="gap-box">
-                <div className="gap-icon">{gap.icon}</div>
-                <div className="gap-name">{gap.name}</div>
-                <div className="gap-sub">학습 필요</div>
+                <span className="gap-sub">학습 필요</span>
+                <strong className="gap-name">{gap.name}</strong>
               </div>
             ))}
           </div>

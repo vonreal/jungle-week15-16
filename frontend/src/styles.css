@@ -234,11 +234,10 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .chip-core { background: var(--purple-l); color: var(--purple); border: 1px solid var(--purple-m); }
 .chip-required { background: var(--blue-l); color: var(--blue); border: 1px solid var(--blue-m); }
 .chip-unrelated { background: #F3F4F6; color: #6B7280; border: 1px solid #E5E7EB; }
-.gap-grid { display: flex; gap: 12px; flex-wrap: wrap; }
-.gap-box { flex: 1; min-width: 130px; padding: 16px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--sh); text-align: center; }
-.gap-icon { font-size: 26px; }
-.gap-name { font-weight: 700; font-size: 13.5px; color: var(--text); margin-top: 8px; }
-.gap-sub { font-size: 11.5px; color: var(--text3); margin-top: 4px; }
+.gap-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+.gap-box { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 7px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); }
+.gap-name { font-weight: 800; font-size: 13px; color: var(--text); }
+.gap-sub { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px; background: var(--amber-l); border: 1px solid var(--amber-m); color: var(--amber); font-size: 11px; font-weight: 800; }
 .analysis-summary { margin: 12px 0 14px; padding: 16px 18px; border-radius: 9px; border: 1px solid var(--blue-m); background: var(--blue-l); color: var(--text2); font-size: 13px; line-height: 1.65; }
 .analysis-summary strong { color: var(--text); font-weight: 800; }
 .md-p { margin: 0; }
