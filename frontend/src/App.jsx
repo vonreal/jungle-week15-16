@@ -115,8 +115,8 @@ const TONE_STYLE = {
   amber: { bg: "var(--amber-l)", c: "var(--amber)", bc: "var(--amber-m)" },
   green: { bg: "var(--green-l)", c: "var(--green)", bc: "#A7F3D0" },
 };
-const JD_ANALYSIS_STEPS = ["JD 저장", "AI 분석", "결과 갱신"];
-const JD_REANALYSIS_STEPS = ["재분석 요청", "AI 재분석", "결과 갱신"];
+const JD_ANALYSIS_STEPS = ["JD 저장", "RAG 검색", "AI 분석", "결과 갱신"];
+const JD_REANALYSIS_STEPS = ["RAG 검색", "AI 재분석", "결과 갱신"];
 
 function normalizeSkillName(value = "") {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
