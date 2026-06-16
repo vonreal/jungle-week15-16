@@ -5,6 +5,12 @@ import re
 from app.services.llm import LLMClient
 
 CORE_KEYWORDS = [
+    "Flutter",
+    "GitLab",
+    "WebSocket",
+    "WebRTC",
+    "iOS",
+    "Android",
     "Spring Boot",
     "Spring",
     "FastAPI",
@@ -29,6 +35,12 @@ CORE_KEYWORDS = [
 ]
 
 REQUIREMENT_ALIASES = {
+    "Flutter": ["flutter", "플러터"],
+    "GitLab": ["gitlab", "깃랩"],
+    "WebSocket": ["websocket", "web socket", "웹소켓"],
+    "WebRTC": ["webrtc", "web rtc"],
+    "iOS": ["ios"],
+    "Android": ["android", "안드로이드"],
     "Spring Boot": ["spring boot", "스프링 부트"],
     "Spring": ["spring", "스프링"],
     "FastAPI": ["fastapi", "fast api"],
@@ -41,9 +53,9 @@ REQUIREMENT_ALIASES = {
     "MySQL": ["mysql", "마이sql"],
     "Redis": ["redis", "레디스"],
     "Kafka": ["kafka", "카프카"],
-    "Docker": ["docker", "도커", "container", "컨테이너"],
+    "Docker": ["docker", "도커"],
     "Kubernetes": ["kubernetes", "쿠버네티스", "k8s"],
-    "AWS": ["aws", "amazon web services", "클라우드"],
+    "AWS": ["aws", "amazon web services"],
     "CI/CD": ["ci/cd", "cicd", "ci cd", "배포 자동화", "자동 배포"],
     "GitHub Actions": ["github actions", "깃허브 액션", "github action"],
     "JPA": ["jpa"],
@@ -59,16 +71,17 @@ class JDAnalyzerService:
 
     def extract_requirements(self, raw_text: str) -> list[dict[str, str]]:
         found = []
-        lower = raw_text.lower()
+        requirement_text = self._requirement_scope(raw_text)
+        lower = requirement_text.lower()
         for keyword in CORE_KEYWORDS:
             if self._keyword_matches(lower, keyword):
-                importance = "required" if self._looks_required(raw_text, keyword) else "preferred"
+                importance = "required" if self._looks_required(requirement_text, keyword) else "preferred"
                 found.append({"skill_name": keyword, "importance": importance})
 
         if found:
             return found
 
-        words = re.findall(r"[A-Za-z][A-Za-z0-9+/#.-]{1,}", raw_text)
+        words = re.findall(r"[A-Za-z][A-Za-z0-9+/#.-]{1,}", requirement_text)
         return [{"skill_name": word, "importance": "preferred"} for word in dict.fromkeys(words[:8])]
 
     async def summarize_gap(
@@ -105,3 +118,14 @@ class JDAnalyzerService:
     def _keyword_matches(self, normalized_text: str, keyword: str) -> bool:
         aliases = REQUIREMENT_ALIASES.get(keyword, [keyword.lower()])
         return any(alias in normalized_text for alias in aliases)
+
+    def _requirement_scope(self, raw_text: str) -> str:
+        start_match = re.search(r"(주요\s*업무|자격\s*요건|지원\s*자격|사용\s*중인\s*기술\s*스택)", raw_text)
+        if not start_match:
+            return raw_text
+
+        scoped = raw_text[start_match.start() :]
+        end_match = re.search(r"(혜택\s*및\s*복지|채용\s*전형|전형\s*절차|복지|기타\s*사항)", scoped)
+        if end_match:
+            scoped = scoped[: end_match.start()]
+        return scoped
