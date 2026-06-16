@@ -92,11 +92,14 @@ class RAGService:
         query: str,
         limit: int = 5,
         user_id: uuid.UUID | None = None,
+        exclude_source_id: uuid.UUID | None = None,
     ) -> list[str]:
         embedding = await self.embed_query(query)
         distance = DocumentEmbedding.embedding.cosine_distance(embedding)
 
         stmt = select(DocumentEmbedding.chunk_text)
+        if exclude_source_id is not None:
+            stmt = stmt.where(DocumentEmbedding.source_id != exclude_source_id)
         if user_id is not None:
             user_jd_ids = select(JobDescription.id).where(JobDescription.user_id == user_id)
             user_document_ids = select(UserDocument.id).where(UserDocument.user_id == user_id)

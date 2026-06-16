@@ -21,6 +21,17 @@ def test_classify_experience_matches_korean_docker_alias():
     assert "Docker" in reason
 
 
+def test_matched_requirements_returns_evidence_keywords():
+    analyzer = JDAnalyzerService()
+
+    matched = analyzer.matched_requirements(
+        "도커 환경에서 크론으로 스크래핑 서버를 운영하고 GitLab으로 배포했습니다.",
+        ["Docker", "GitLab", "Flutter"],
+    )
+
+    assert matched == ["Docker", "GitLab"]
+
+
 def test_extract_requirements_ignores_company_intro_in_elice_mobile_jd():
     analyzer = JDAnalyzerService()
     raw_text = """

@@ -333,7 +333,10 @@ function normalizeAnalysis(analysis, userSkills = []) {
     experiences: classifications.map((item) => ({
       type: item.classification === "essential" ? "required" : item.classification,
       text: item.experience_content || item.reason || "경험 내용 없음",
+      reason: item.reason || "분류 근거가 아직 없습니다.",
+      matchedRequirements: item.matched_requirements ?? [],
     })),
+    ragEvidence: (analysis.rag_evidence ?? []).map((item) => item.text).filter(Boolean),
     gaps: missingRequirements.slice(0, 6).map((item, index) => ({
       name: item.skill_name,
       icon: String(index + 1),
@@ -1877,6 +1880,11 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
     untracked: "스탯 항목 없음",
     none: "미보유",
   };
+  const experienceTypeLabel = {
+    core: "핵심",
+    required: "필수",
+    unrelated: "비연관",
+  };
   const reanalyze = async (target = analysis) => {
     if (!target?.id) return;
     setGlobalLoading?.({
@@ -2132,12 +2140,25 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
               ))}
             </div>
           </div>
-          <div className="chip-cloud">
+          <div className="experience-evidence-list">
             {experiences.length ? (
               experiences.map((item) => (
-                <Chip key={item.text} type={item.type}>
-                  {item.text}
-                </Chip>
+                <div key={item.text} className={`experience-evidence-row ${item.type}`}>
+                  <div className="experience-evidence-head">
+                    <Chip type={item.type}>{experienceTypeLabel[item.type] ?? "분류"}</Chip>
+                    {item.matchedRequirements.length ? (
+                      <div className="matched-requirements">
+                        {item.matchedRequirements.slice(0, 4).map((requirement) => (
+                          <span key={`${item.text}-${requirement}`}>{requirement}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="no-match-label">직접 매칭 없음</span>
+                    )}
+                  </div>
+                  <strong>{item.text}</strong>
+                  <p>{item.reason}</p>
+                </div>
               ))
             ) : (
               <EmptyState
@@ -2151,6 +2172,26 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
               />
             )}
           </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">RAG 참고 근거</div>
+          <p className="card-sub">분석에 참고한 내 문서와 이전 JD 청크입니다</p>
+          {analysis.ragEvidence?.length ? (
+            <div className="rag-evidence-list">
+              {analysis.ragEvidence.slice(0, 5).map((text, index) => (
+                <div key={`${analysis.id}-rag-${index}`} className="rag-evidence-item">
+                  <span>{index + 1}</span>
+                  <p>{text}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="참고할 RAG 근거가 없습니다"
+              description="이력서/포트폴리오를 업로드하거나 JD 분석 이력이 쌓이면 관련 근거가 표시됩니다."
+            />
+          )}
         </div>
 
         <div className="card">

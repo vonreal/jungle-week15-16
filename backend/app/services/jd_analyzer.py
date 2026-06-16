@@ -105,13 +105,16 @@ class JDAnalyzerService:
         return await self.llm.complete(prompt)
 
     def classify_experience(self, experience: str, requirements: list[str]) -> tuple[str, str]:
-        normalized = experience.lower()
-        hits = [req for req in requirements if self._keyword_matches(normalized, req)]
+        hits = self.matched_requirements(experience, requirements)
         if len(hits) >= 2:
             return "core", f"핵심 요구사항 {', '.join(hits[:3])}와 직접 연결됩니다."
         if len(hits) == 1:
             return "essential", f"{hits[0]} 요구사항을 뒷받침하는 경험입니다."
         return "unrelated", "현재 JD 핵심 키워드와 직접적인 연결이 약합니다."
+
+    def matched_requirements(self, experience: str, requirements: list[str]) -> list[str]:
+        normalized = experience.lower()
+        return [req for req in requirements if self._keyword_matches(normalized, req)]
 
     def _looks_required(self, text: str, keyword: str) -> bool:
         lower = text.lower()

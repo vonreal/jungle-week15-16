@@ -44,6 +44,11 @@ class ExperienceClassificationRead(BaseModel):
     experience_content: str
     classification: str
     reason: str | None
+    matched_requirements: list[str] = []
+
+
+class RAGEvidenceRead(BaseModel):
+    text: str
 
 
 class JDAnalysisRead(BaseModel):
@@ -60,3 +65,4 @@ class JDAnalysisRead(BaseModel):
     latest_document_at: datetime | None = None
     requirements: list[JDRequirementRead] = []
     classifications: list[ExperienceClassificationRead] = []
+    rag_evidence: list[RAGEvidenceRead] = []

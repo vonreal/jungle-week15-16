@@ -124,7 +124,12 @@ async def _run_jd_analysis(session: SessionDep, user_id: uuid.UUID, jd: JobDescr
         .where(UserSkill.user_id == user_id)
     )
     user_skills = list(user_skill_result.all())
-    similar_chunks = await RAGService().similar_chunks(session, jd.raw_text, user_id=user_id)
+    similar_chunks = await RAGService().similar_chunks(
+        session,
+        jd.raw_text,
+        user_id=user_id,
+        exclude_source_id=jd.id,
+    )
     gap_summary = await analyzer.summarize_gap(jd.raw_text, user_skills, similar_chunks)
 
     analysis = JDAnalysis(jd_id=jd.id, user_id=user_id, gap_summary=gap_summary)
@@ -167,6 +172,7 @@ async def _run_jd_analysis(session: SessionDep, user_id: uuid.UUID, jd: JobDescr
         list(req_result.scalars().all()),
         list(loaded_analysis.classifications),
         latest_document_at,
+        similar_chunks,
     )
 
 
@@ -194,6 +200,14 @@ async def list_analyses(session: SessionDep, current_user: CurrentUser) -> list[
                 list(req_result.scalars().all()),
                 list(analysis.classifications),
                 latest_document_at,
+                await RAGService().similar_chunks(
+                    session,
+                    analysis.jd.raw_text,
+                    user_id=current_user.id,
+                    exclude_source_id=analysis.jd_id,
+                )
+                if analysis.jd
+                else [],
             )
         )
     return rows
@@ -229,11 +243,30 @@ def _analysis_response(
     requirements: list[JDRequirement],
     classifications: list[ExperienceClassification],
     latest_document_at,
+    rag_evidence: list[str] | None = None,
 ) -> dict:
+    analyzer = JDAnalyzerService()
+    requirement_names = [item.skill_name for item in requirements]
+    classification_payloads = []
+    for item in classifications:
+        content = item.experience_content
+        matched_requirements = analyzer.matched_requirements(content, requirement_names)
+        classification_payloads.append(
+            {
+                "id": item.id,
+                "experience_id": item.experience_id,
+                "experience_content": content,
+                "classification": item.classification,
+                "reason": item.reason,
+                "matched_requirements": matched_requirements,
+            }
+        )
+
     return {
         **JDAnalysisRead.model_validate(analysis).model_dump(),
         "needs_reanalysis": bool(latest_document_at and analysis.created_at < latest_document_at),
         "latest_document_at": latest_document_at,
         "requirements": requirements,
-        "classifications": classifications,
+        "classifications": classification_payloads,
+        "rag_evidence": [{"text": text} for text in (rag_evidence or [])],
     }

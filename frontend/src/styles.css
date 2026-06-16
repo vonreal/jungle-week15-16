@@ -275,6 +275,22 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .chip-core { background: var(--purple-l); color: var(--purple); border: 1px solid var(--purple-m); }
 .chip-required { background: var(--blue-l); color: var(--blue); border: 1px solid var(--blue-m); }
 .chip-unrelated { background: #F3F4F6; color: #6B7280; border: 1px solid #E5E7EB; }
+.experience-evidence-list { display: flex; flex-direction: column; gap: 10px; }
+.experience-evidence-row { padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); }
+.experience-evidence-row.core { border-color: var(--purple-m); background: #FBF8FF; }
+.experience-evidence-row.required { border-color: var(--blue-m); background: #F8FAFF; }
+.experience-evidence-row.unrelated { background: #F9FAFB; }
+.experience-evidence-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 7px; }
+.experience-evidence-row .chip { margin: 0; flex-shrink: 0; }
+.experience-evidence-row strong { display: block; color: var(--text); font-size: 13px; line-height: 1.55; word-break: keep-all; overflow-wrap: anywhere; }
+.experience-evidence-row p { margin-top: 5px; color: var(--text2); font-size: 12px; line-height: 1.5; }
+.matched-requirements { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.matched-requirements span { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text2); font-size: 11px; font-weight: 700; }
+.no-match-label { color: var(--text3); font-size: 11.5px; font-weight: 700; }
+.rag-evidence-list { display: flex; flex-direction: column; gap: 8px; }
+.rag-evidence-item { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); }
+.rag-evidence-item span { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: var(--blue-l); color: var(--blue); font-size: 11px; font-weight: 900; }
+.rag-evidence-item p { color: var(--text2); font-size: 12.5px; line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .gap-grid { display: flex; gap: 8px; flex-wrap: wrap; }
 .gap-box { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 7px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); }
 .gap-name { font-weight: 800; font-size: 13px; color: var(--text); }
