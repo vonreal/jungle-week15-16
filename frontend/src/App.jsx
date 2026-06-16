@@ -336,7 +336,6 @@ function normalizeAnalysis(analysis, userSkills = []) {
       reason: item.reason || "분류 근거가 아직 없습니다.",
       matchedRequirements: item.matched_requirements ?? [],
     })),
-    ragEvidence: (analysis.rag_evidence ?? []).map((item) => item.text).filter(Boolean),
     gaps: missingRequirements.slice(0, 6).map((item, index) => ({
       name: item.skill_name,
       icon: String(index + 1),
@@ -2207,26 +2206,6 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
               />
             )}
           </div>
-        </div>
-
-        <div className="card">
-          <div className="card-title">RAG 참고 근거</div>
-          <p className="card-sub">분석에 참고한 내 문서와 이전 JD 청크입니다</p>
-          {analysis.ragEvidence?.length ? (
-            <div className="rag-evidence-list">
-              {analysis.ragEvidence.slice(0, 5).map((text, index) => (
-                <div key={`${analysis.id}-rag-${index}`} className="rag-evidence-item">
-                  <span>{index + 1}</span>
-                  <p>{text}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title="참고할 RAG 근거가 없습니다"
-              description="이력서/포트폴리오를 업로드하거나 JD 분석 이력이 쌓이면 관련 근거가 표시됩니다."
-            />
-          )}
         </div>
 
         <div className="card">
