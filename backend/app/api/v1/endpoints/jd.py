@@ -200,14 +200,6 @@ async def list_analyses(session: SessionDep, current_user: CurrentUser) -> list[
                 list(req_result.scalars().all()),
                 list(analysis.classifications),
                 latest_document_at,
-                await RAGService().similar_chunks(
-                    session,
-                    analysis.jd.raw_text,
-                    user_id=current_user.id,
-                    exclude_source_id=analysis.jd_id,
-                )
-                if analysis.jd
-                else [],
             )
         )
     return rows

@@ -2186,9 +2186,21 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
   const deleteAnalysis = async () => {
     if (!deleteTarget?.id) return;
     setIsDeletingAnalysis(true);
+    setGlobalLoading?.({
+      title: "분석 결과를 삭제하는 중입니다",
+      description: "분석 결과, 요구사항, 경험 분류 데이터를 정리하고 목록을 갱신합니다.",
+      steps: ["삭제 요청", "연결 데이터 정리", "목록 갱신"],
+      activeStep: 0,
+    });
     try {
       const deletedId = deleteTarget.id;
       await jdApi.deleteAnalysis(deleteTarget.id);
+      setGlobalLoading?.({
+        title: "분석 목록을 갱신하는 중입니다",
+        description: "삭제된 결과를 화면에서 제거하고 최신 데이터를 불러옵니다.",
+        steps: ["삭제 요청", "연결 데이터 정리", "목록 갱신"],
+        activeStep: 2,
+      });
       setDeleteTarget(null);
       if (selectedAnalysisId === deletedId) {
         setSelectedAnalysisId(null);
@@ -2198,6 +2210,7 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
       notifyUnavailable?.(event.message || "분석 결과 삭제에 실패했습니다.");
     } finally {
       setIsDeletingAnalysis(false);
+      setGlobalLoading?.(null);
     }
   };
 
