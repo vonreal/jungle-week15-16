@@ -1957,7 +1957,7 @@ function PostListScreen({ go, data, onSelectPost }) {
   const [page, setPage] = useState(1);
   const filters = ["전체", "백엔드", "프론트엔드", "AI/ML", "DevOps"];
   const postRows = data.posts;
-  const pageSize = 1;
+  const pageSize = 9;
   const filtered = postRows.filter(
     (post) => {
       const role = postRole(post);
