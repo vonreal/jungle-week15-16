@@ -1926,7 +1926,82 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed, setGlob
   const [text, setText] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
+  const [metadataStatus, setMetadataStatus] = useState("idle");
+  const [metadataNotice, setMetadataNotice] = useState("");
+  const titleRef = useRef(title);
+  const companyRef = useRef(company);
+  const metadataRequestRef = useRef(0);
   const isAnalyzing = status === "saving";
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
+  useEffect(() => {
+    companyRef.current = company;
+  }, [company]);
+
+  const isPreviewableUrl = (value) => {
+    try {
+      const parsed = new URL(value);
+      return ["http:", "https:"].includes(parsed.protocol);
+    } catch {
+      return false;
+    }
+  };
+
+  const prefillMetadataFromLink = async (value) => {
+    const nextLink = value.trim();
+    if (!nextLink || !isPreviewableUrl(nextLink)) {
+      setMetadataStatus("idle");
+      setMetadataNotice("");
+      return;
+    }
+    if (titleRef.current.trim() && companyRef.current.trim()) {
+      setMetadataStatus("idle");
+      setMetadataNotice("");
+      return;
+    }
+
+    const requestId = metadataRequestRef.current + 1;
+    metadataRequestRef.current = requestId;
+    setMetadataStatus("loading");
+    setMetadataNotice("링크에서 제목을 가져오는 중입니다.");
+    try {
+      const metadata = await jdApi.metadata(nextLink);
+      if (metadataRequestRef.current !== requestId) return;
+      let filled = false;
+      if (!titleRef.current.trim() && metadata.title) {
+        setTitle(metadata.title);
+        titleRef.current = metadata.title;
+        filled = true;
+      }
+      if (!companyRef.current.trim() && metadata.company) {
+        setCompany(metadata.company);
+        companyRef.current = metadata.company;
+        filled = true;
+      }
+      setMetadataStatus(filled ? "done" : "idle");
+      setMetadataNotice(filled ? "링크에서 제목 정보를 채웠습니다." : "");
+    } catch {
+      if (metadataRequestRef.current !== requestId) return;
+      setMetadataStatus("idle");
+      setMetadataNotice("");
+    }
+  };
+
+  useEffect(() => {
+    if (tab !== "link") return undefined;
+    const nextLink = link.trim();
+    if (!nextLink) {
+      setMetadataStatus("idle");
+      setMetadataNotice("");
+      return undefined;
+    }
+    const timer = window.setTimeout(() => {
+      prefillMetadataFromLink(nextLink);
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [link, tab]);
+
   const analyze = async () => {
     if (!requireAuth("JD 분석 실행은 로그인 후 사용할 수 있습니다.")) return;
     const nextTitle = title.trim();
@@ -2044,8 +2119,14 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed, setGlob
                     setLink(event.target.value);
                     setError("");
                   }}
+                  onBlur={() => prefillMetadataFromLink(link)}
                   placeholder="https://careers.kakao.com/jobs/..."
                 />
+                {metadataNotice && (
+                  <div className={`field-hint ${metadataStatus === "loading" ? "loading" : "success"}`}>
+                    {metadataNotice}
+                  </div>
+                )}
               </div>
               <div>
                 <div className="field-lbl">회사 빠른 선택</div>

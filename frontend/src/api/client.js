@@ -126,6 +126,7 @@ export const documentsApi = {
 
 export const jdApi = {
   list: () => apiFetch("/jd"),
+  metadata: (sourceUrl) => apiFetch("/jd/metadata", { method: "POST", body: JSON.stringify({ source_url: sourceUrl }) }),
   analyses: () => apiFetch("/jd/analyses"),
   deleteAnalysis: (analysisId) => apiFetch(`/jd/analyses/${analysisId}`, { method: "DELETE" }),
   deleteAnalyses: (analysisIds) => apiFetch("/jd/analyses/bulk-delete", { method: "POST", body: JSON.stringify({ analysis_ids: analysisIds }) }),

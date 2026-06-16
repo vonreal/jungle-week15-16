@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import delete, func, select
@@ -17,12 +18,128 @@ from app.models import (
     UserExperience,
     UserSkill,
 )
-from app.schemas.jd import JDAnalysisBulkDelete, JDAnalysisRead, JDCreate, JDRead
+from app.schemas.jd import (
+    JDAnalysisBulkDelete,
+    JDAnalysisRead,
+    JDCreate,
+    JDMetadataRead,
+    JDMetadataRequest,
+    JDRead,
+)
 from app.services.crawler_mcp import MCPCrawlerService
 from app.services.jd_analyzer import JDAnalyzerService
 from app.services.rag import RAGService
 
 router = APIRouter()
+
+KNOWN_COMPANIES = {
+    "kakao": "카카오",
+    "naver": "네이버",
+    "navercorp": "네이버",
+    "line": "라인",
+    "toss": "토스",
+    "daangn": "당근마켓",
+    "coupang": "쿠팡",
+    "woowahan": "배민",
+    "wanted": "원티드",
+    "jumpit": "점핏",
+    "programmers": "프로그래머스",
+    "elice": "엘리스",
+    "dunamu": "두나무",
+}
+
+TITLE_NOISE_KEYWORDS = (
+    "지원하기",
+    "share",
+    "save",
+    "채용공고",
+    "채용정보",
+    "복리후생",
+    "혜택",
+    "전형 절차",
+    "유의사항",
+)
+
+
+def infer_jd_metadata(raw_text: str, source_url: str) -> dict[str, str | None]:
+    normalized = " ".join((raw_text or "").split())
+    title = _infer_title(normalized)
+    company = _infer_company(normalized, source_url)
+    return {"title": title, "company": company}
+
+
+def _infer_company(text: str, source_url: str) -> str | None:
+    lower_host = urlparse(source_url).netloc.lower()
+    for key, value in KNOWN_COMPANIES.items():
+        if key in lower_host:
+            return value
+    for value in KNOWN_COMPANIES.values():
+        if value in text:
+            return value
+    return None
+
+
+def _infer_title(text: str) -> str | None:
+    if not text:
+        return None
+
+    for opener, closer in [("[", "]"), ("【", "】")]:
+        start = text.find(opener)
+        end = text.find(closer, start + 1)
+        if start != -1 and end != -1:
+            segment = text[start:]
+            for marker in [" 모집 부서", " 모집 분야", " 모집 경력", " 담당 업무", " 주요업무", " 자격요건", " 조직 소개"]:
+                if marker in segment:
+                    segment = segment[: segment.find(marker)]
+                    break
+            segment = " ".join(segment.split())
+            if _looks_like_title(segment):
+                return segment[:160]
+
+    candidates = []
+    bracketed = []
+    for marker in ["모집 분야", "모집 분야", "담당 업무", "주요업무", "자격요건", "조직 소개"]:
+        if marker in text:
+            text = text[: text.find(marker)]
+            break
+
+    for opener, closer in [("[", "]"), ("【", "】")]:
+        start = text.find(opener)
+        end = text.find(closer, start + 1)
+        if start != -1 and end != -1:
+            bracketed.append(text[start : end + 1])
+
+    chunks = []
+    for delimiter in [" | ", " · ", " - ", " 모집 부서", " 모집 분야", " 경력", " 정규직"]:
+        text = text.replace(delimiter, "\n")
+    for line in text.split("\n"):
+        for part in line.split("  "):
+            part = part.strip()
+            if not part:
+                continue
+            sentences = [sentence.strip() for sentence in part.split(". ") if sentence.strip()]
+            if len(sentences) > 1:
+                chunks.extend(sentences[1:])
+            chunks.append(part)
+            chunks.extend(sentences[:1])
+
+    for chunk in [*bracketed, *chunks]:
+        candidate = " ".join(chunk.split())
+        if _looks_like_title(candidate):
+            candidates.append(candidate)
+
+    if not candidates:
+        return None
+    return candidates[0][:160]
+
+
+def _looks_like_title(candidate: str) -> bool:
+    if not 4 <= len(candidate) <= 90:
+        return False
+    lowered = candidate.lower()
+    if any(keyword.lower() in lowered for keyword in TITLE_NOISE_KEYWORDS):
+        return False
+    return any(token in candidate for token in ["개발", "엔지니어", "Engineer", "Developer", "백엔드", "프론트", "AI", "ML", "Flutter", "iOS", "Android"])
 
 
 @router.post("", response_model=JDRead, status_code=status.HTTP_201_CREATED)
@@ -58,6 +175,21 @@ async def create_jd(payload: JDCreate, session: SessionDep, current_user: Curren
     await session.commit()
     await session.refresh(jd)
     return jd
+
+
+@router.post("/metadata", response_model=JDMetadataRead)
+async def preview_jd_metadata(payload: JDMetadataRequest, current_user: CurrentUser) -> dict[str, str | None]:
+    try:
+        raw_text = await MCPCrawlerService().fetch_text(payload.source_url)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "링크에서 채용공고 제목을 가져오지 못했습니다. "
+                "제목을 직접 입력하거나 텍스트 입력 탭을 사용해주세요."
+            ),
+        ) from exc
+    return infer_jd_metadata(raw_text, payload.source_url)
 
 
 @router.get("", response_model=list[JDRead])

@@ -14,6 +14,15 @@ class JDCreate(BaseModel):
     input_type: str = Field(pattern="^(link|text)$")
 
 
+class JDMetadataRequest(BaseModel):
+    source_url: str = Field(min_length=1, max_length=2048)
+
+
+class JDMetadataRead(BaseModel):
+    title: str | None = None
+    company: str | None = None
+
+
 class JDAnalysisBulkDelete(BaseModel):
     analysis_ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
 
