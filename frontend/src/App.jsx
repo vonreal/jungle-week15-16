@@ -121,64 +121,6 @@ function normalizeSkillName(value = "") {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function displaySkillCategory(category = "") {
-  return category === "CS" ? "CS 기초" : category || "운영/협업";
-}
-
-function inferRequirementCategory(requirementName = "", userSkills = []) {
-  const reqName = normalizeSkillName(requirementName);
-  const matchedSkill = userSkills.find((item) => {
-    const skillName = normalizeSkillName(item.skill?.name);
-    const related = RELATED_SKILLS[reqName] ?? [];
-    return (
-      skillName === reqName ||
-      related.some((name) => normalizeSkillName(name) === skillName) ||
-      (skillName && (reqName.includes(skillName) || skillName.includes(reqName)))
-    );
-  });
-  if (matchedSkill?.skill?.category) return displaySkillCategory(matchedSkill.skill.category);
-
-  if (/algorithm|자료구조|운영체제|os|network|네트워크|database|db|데이터베이스|system|시스템/.test(reqName)) {
-    return "CS 기초";
-  }
-  if (/java|python|javascript|typescript|kotlin|go|c\+\+|c#|sql/.test(reqName)) {
-    return "언어";
-  }
-  if (/spring|fastapi|django|node|react|vue|backend|api|jpa|redis|kafka|server|서버|백엔드/.test(reqName)) {
-    return "백엔드";
-  }
-  return "운영/협업";
-}
-
-function buildAnalysisStatComparison(scoreDetails = [], userSkills = []) {
-  const categories = ["CS 기초", "언어", "백엔드", "운영/협업"];
-  const grouped = categories.reduce((acc, label) => ({ ...acc, [label]: [] }), {});
-
-  scoreDetails.forEach((item) => {
-    const category = item.category ?? inferRequirementCategory(item.name, userSkills);
-    grouped[category] ??= [];
-    grouped[category].push(item);
-  });
-
-  return Object.entries(grouped)
-    .map(([label, items]) => {
-      const target = items.length
-        ? Math.round(items.reduce((sum, item) => sum + (item.targetLevel / 4) * 100, 0) / items.length)
-        : 0;
-      const mine = items.length
-        ? Math.round(items.reduce((sum, item) => sum + (Math.min(item.userLevel, item.targetLevel) / 4) * 100, 0) / items.length)
-        : 0;
-      return {
-        label,
-        target,
-        mine,
-        gap: Math.max(0, target - mine),
-        count: items.length,
-      };
-    })
-    .filter((item) => item.count > 0);
-}
-
 function scoreRequirement(requirement, userSkills = []) {
   const reqName = normalizeSkillName(requirement.skill_name);
   const targetLevel = requirement.importance === "required" ? 4 : 3;
@@ -348,7 +290,6 @@ function normalizeAnalysis(analysis, userSkills = []) {
     return {
       name: item.skill_name,
       importance: item.importance,
-      category: inferRequirementCategory(item.skill_name, userSkills),
       targetLevel: result.targetLevel,
       userLevel: result.userLevel,
       matchedSkillName: result.matchedSkillName,
@@ -357,7 +298,6 @@ function normalizeAnalysis(analysis, userSkills = []) {
     };
   });
   const classifications = analysis.classifications ?? [];
-  const statComparison = buildAnalysisStatComparison(scoreDetails, userSkills);
   return {
     id: analysis.id,
     jdId: analysis.jd_id,
@@ -381,9 +321,6 @@ function normalizeAnalysis(analysis, userSkills = []) {
       ? `직접 ${directCount}개 · 연관 ${relatedCount}개 / 요구 ${requirements.length}개`
       : "요구사항 추출 전",
     scoreDetails,
-    statComparison,
-    targetRadar: statComparison.map((item) => ({ label: item.label, v: item.target })),
-    userRadar: statComparison.map((item) => ({ label: item.label, v: item.mine })),
   };
 }
 
@@ -1762,46 +1699,6 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="card">
-          <div className="card-title">공고 기준 스탯 비교</div>
-          <p className="card-sub">공고 요구사항을 카테고리별 목표 스탯으로 환산해 내 스탯과 비교합니다</p>
-          {analysis.statComparison?.length ? (
-            <div className="stat-compare-layout">
-              <div className="stat-compare-chart">
-                <RadarChart data={analysis.userRadar} compareData={analysis.targetRadar} size={230} />
-                <div className="radar-legend">
-                  <span><i className="legend-line mine" />내 스탯</span>
-                  <span><i className="legend-line target" />공고 기준</span>
-                </div>
-              </div>
-              <div className="stat-compare-grid">
-                {analysis.statComparison.map((item) => (
-                  <div key={item.label} className="stat-compare-tile">
-                    <div>
-                      <strong>{item.label}</strong>
-                      <span>차이 {item.gap}p</span>
-                    </div>
-                    <div className="stat-compare-values">
-                      <span>내 {item.mine}</span>
-                      <span>공고 {item.target}</span>
-                    </div>
-                    <div className="dual-bar" aria-hidden="true">
-                      <div className="dual-bar-track">
-                        <div className="dual-bar-fill mine" style={{ width: `${item.mine}%` }} />
-                      </div>
-                      <div className="dual-bar-track">
-                        <div className="dual-bar-fill target" style={{ width: `${item.target}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <EmptyState title="비교할 요구사항이 없습니다" description="JD 요구사항이 추출되면 공고 기준 스탯 비교가 표시됩니다." />
-          )}
         </div>
 
         <div className="card">
