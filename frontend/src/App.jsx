@@ -1618,6 +1618,12 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
 
   return (
     <div className="screen">
+      <div className="detail-topbar">
+        <button className="btn btn-secondary btn-sm" onClick={() => setSelectedAnalysisId(null)} type="button">
+          <Icon icon={ArrowLeft} size={14} />
+          목록으로
+        </button>
+      </div>
       <div className="page-header">
         <div>
           <div className="page-eyebrow">JD 분석 결과</div>
@@ -1637,10 +1643,6 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
               업데이트 정보로 재분석
             </button>
           )}
-          <button className="btn btn-secondary btn-sm" onClick={() => setSelectedAnalysisId(null)} type="button">
-            <Icon icon={ArrowLeft} size={14} />
-            목록으로
-          </button>
         </div>
       </div>
 
