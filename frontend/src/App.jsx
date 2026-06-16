@@ -1653,19 +1653,26 @@ function PostListScreen({ go, data, onSelectPost }) {
             const tags = postTagNames(post);
             const roleColor = ROLE_COLORS[role] ?? "#3B6FEF";
             return (
-              <button key={post.id} className="post-card" onClick={() => onSelectPost(post.id)} type="button">
+              <button
+                key={post.id}
+                className={`post-card ${post.recruit_status === "closed" ? "closed" : ""}`}
+                onClick={() => onSelectPost(post.id)}
+                type="button"
+              >
                 <div>
-                  <div className="tag-row">
-                    <span className="role-badge" style={{ background: `${roleColor}18`, color: roleColor, borderColor: `${roleColor}30` }}>
-                      {role}
-                    </span>
-                    {tags.filter((tag) => tag !== role).slice(0, 2).map((stack) => (
-                      <span key={stack} className="stk-tag stk-blue">{stack}</span>
-                    ))}
+                  <div className="post-card-top">
+                    <div className="tag-row">
+                      <span className="role-badge" style={{ background: `${roleColor}18`, color: roleColor, borderColor: `${roleColor}30` }}>
+                        {role}
+                      </span>
+                      {tags.filter((tag) => tag !== role).slice(0, 2).map((stack) => (
+                        <span key={stack} className="stk-tag stk-blue">{stack}</span>
+                      ))}
+                    </div>
+                    <span className={`status-badge recruit-${post.recruit_status ?? "open"}`}>{recruitStatusLabel(post.recruit_status)}</span>
                   </div>
                   <div className="post-title-txt">{post.title}</div>
                 </div>
-                <div className={`cond-badge recruit-${post.recruit_status ?? "open"}`}>{recruitStatusLabel(post.recruit_status)}</div>
                 <div className="post-meta">
                   <div className="author-row">
                     <div className="sm-av">CB</div>
