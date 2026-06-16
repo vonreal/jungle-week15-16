@@ -1447,24 +1447,18 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed, setGlob
 
 function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
   const analyses = data.analyses?.length ? data.analyses : data.analysis?.title ? [data.analysis] : [];
-  const [selectedAnalysisId, setSelectedAnalysisId] = useState(analyses[0]?.id ?? null);
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeletingAnalysis, setIsDeletingAnalysis] = useState(false);
-  const [showAllAnalyses, setShowAllAnalyses] = useState(false);
   useEffect(() => {
-    if (!analyses.length) {
+    if (!selectedAnalysisId || !analyses.some((item) => item.id === selectedAnalysisId)) {
       setSelectedAnalysisId(null);
-      return;
-    }
-    if (!analyses.some((item) => item.id === selectedAnalysisId)) {
-      setSelectedAnalysisId(analyses[0].id);
     }
   }, [analyses, selectedAnalysisId]);
 
-  const analysis = analyses.find((item) => item.id === selectedAnalysisId) ?? analyses[0] ?? EMPTY_DATA.analysis;
-  const hasAnalysis = Boolean(analysis.title);
-  const historyPreview = analyses.slice(0, 3);
-  const experiences = analysis.experiences ?? [];
+  const analysis = analyses.find((item) => item.id === selectedAnalysisId) ?? null;
+  const hasAnalysis = analyses.length > 0;
+  const experiences = analysis?.experiences ?? [];
   const counts = {
     core: experiences.filter((item) => item.type === "core").length,
     required: experiences.filter((item) => item.type === "required").length,
@@ -1479,8 +1473,12 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
     if (!deleteTarget?.id) return;
     setIsDeletingAnalysis(true);
     try {
+      const deletedId = deleteTarget.id;
       await jdApi.deleteAnalysis(deleteTarget.id);
       setDeleteTarget(null);
+      if (selectedAnalysisId === deletedId) {
+        setSelectedAnalysisId(null);
+      }
       await onDeleted?.();
     } catch (event) {
       notifyUnavailable?.(event.message || "분석 결과 삭제에 실패했습니다.");
@@ -1512,18 +1510,18 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
     );
   }
 
-  if (showAllAnalyses) {
+  if (!analysis) {
     return (
       <div className="screen">
         <div className="page-header">
           <div>
             <div className="page-eyebrow">JD 분석 결과</div>
             <h1 className="page-title">전체 분석 이력</h1>
-            <p className="page-sub">총 {analyses.length}개 분석 결과를 최신순으로 확인합니다</p>
+            <p className="page-sub">분석 결과를 선택하면 상세 비교 화면으로 이동합니다</p>
           </div>
-          <button className="btn btn-secondary btn-sm" onClick={() => setShowAllAnalyses(false)} type="button">
-            <Icon icon={ArrowLeft} size={14} />
-            상세로 돌아가기
+          <button className="btn btn-primary btn-sm" onClick={() => go("jdinput")} type="button">
+            새 JD 분석
+            <Icon icon={ArrowRight} size={14} />
           </button>
         </div>
 
@@ -1532,11 +1530,8 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
             {analyses.map((item) => (
               <button
                 key={item.id ?? `${item.title}-${item.createdAt}`}
-                className={`analysis-list-item ${item.id === analysis.id ? "active" : ""}`}
-                onClick={() => {
-                  setSelectedAnalysisId(item.id);
-                  setShowAllAnalyses(false);
-                }}
+                className="analysis-list-item"
+                onClick={() => setSelectedAnalysisId(item.id)}
                 type="button"
               >
                 <div className="analysis-list-main">
@@ -1593,7 +1588,7 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
         <div>
           <div className="page-eyebrow">JD 분석 결과</div>
           <h1 className="page-title">{analysis.company ? `${analysis.company} · ` : ""}{analysis.title}</h1>
-          <p className="page-sub">총 {analyses.length}개 분석 · 선택한 분석 {analysis.createdAt ?? "저장된 분석"}</p>
+          <p className="page-sub">{analysis.createdAt ?? "저장된 분석"} · JD와 내 스탯/경험을 비교한 상세 결과입니다</p>
         </div>
         <div className="score-box">
           <div className="score">{analysis.score}%</div>
@@ -1603,50 +1598,14 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
             포트폴리오 추천
             <Icon icon={ArrowRight} size={14} />
           </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setSelectedAnalysisId(null)} type="button">
+            <Icon icon={ArrowLeft} size={14} />
+            목록으로
+          </button>
         </div>
       </div>
 
       <div className="screen-stack">
-        <div className="card">
-          <div className="card-title-row">
-            <div className="card-title">분석 이력</div>
-            {analyses.length > 3 && (
-              <button className="text-action" onClick={() => setShowAllAnalyses(true)} type="button">
-                전체 {analyses.length}개 보기
-              </button>
-            )}
-          </div>
-          <div className="analysis-list">
-            {historyPreview.map((item) => (
-              <button
-                key={item.id ?? `${item.title}-${item.createdAt}`}
-                className={`analysis-list-item ${item.id === analysis.id ? "active" : ""}`}
-                onClick={() => setSelectedAnalysisId(item.id)}
-                type="button"
-              >
-                <div className="analysis-list-main">
-                  <strong>{item.company ? `${item.company} · ` : ""}{item.title}</strong>
-                  <span>{item.createdAt ?? "분석 날짜 없음"}</span>
-                </div>
-                <div className="analysis-list-side">
-                  <div className="analysis-list-score">{item.score}%</div>
-                  <button
-                    className="analysis-delete"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setDeleteTarget(item);
-                    }}
-                    type="button"
-                    aria-label="분석 결과 삭제"
-                  >
-                    <Icon icon={X} size={14} />
-                  </button>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
         <div className="card">
           <div className="card-title card-title-spaced">JD 핵심 요구사항</div>
           <div className="req-grid">
