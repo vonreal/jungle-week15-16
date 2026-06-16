@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BarChart3,
+  Bell,
   Bot,
   ClipboardList,
   Edit3,
@@ -491,13 +492,65 @@ function PasswordInput({
   );
 }
 
-function Dashboard({ go, data, apiStatus, currentUser, onLogout, requireAuth }) {
+function Dashboard({ go, data, apiStatus, currentUser, onLogout, requireAuth, onSelectPost, onDataChanged, notifyUnavailable }) {
   const isGuest = !currentUser;
+  const [applicationAlerts, setApplicationAlerts] = useState([]);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [alertsLoading, setAlertsLoading] = useState(false);
+  const [updatingApplicationId, setUpdatingApplicationId] = useState(null);
+  const ownerPosts = isGuest ? [] : (data.posts ?? []).filter((post) => post.user_id === currentUser.id && !post.is_draft);
+  const pendingAlerts = applicationAlerts.filter((item) => item.status === "pending");
   const actions = data.portfolio.actions.map((action, index) => ({
     desc: "DB 추천 액션 플랜",
     tag: action.week ?? `${index + 1}순위`,
     ...action,
   }));
+  useEffect(() => {
+    let canceled = false;
+    const loadApplicationAlerts = async () => {
+      if (isGuest || !ownerPosts.length) {
+        setApplicationAlerts([]);
+        setAlertsLoading(false);
+        return;
+      }
+      setAlertsLoading(true);
+      try {
+        const groupedApplications = await Promise.all(
+          ownerPosts.map(async (post) => {
+            const applications = await postsApi.applications(post.id).catch(() => []);
+            return applications.map((application) => ({ ...application, post }));
+          })
+        );
+        if (!canceled) {
+          setApplicationAlerts(
+            groupedApplications
+              .flat()
+              .sort((left, right) => new Date(right.created_at) - new Date(left.created_at))
+          );
+        }
+      } finally {
+        if (!canceled) setAlertsLoading(false);
+      }
+    };
+    loadApplicationAlerts();
+    return () => {
+      canceled = true;
+    };
+  }, [isGuest, currentUser?.id, data.posts]);
+  const updateApplicationAlert = async (application, nextStatus) => {
+    if (updatingApplicationId) return;
+    setUpdatingApplicationId(application.id);
+    try {
+      const updated = await postsApi.updateApplication(application.post_id, application.id, { status: nextStatus });
+      setApplicationAlerts((prev) => prev.map((item) => (item.id === application.id ? { ...item, ...updated } : item)));
+      await onDataChanged?.({ label: nextStatus === "approved" ? "신청 승인됨" : "신청 거절됨", tone: "ok" });
+      notifyUnavailable?.(nextStatus === "approved" ? "신청을 승인했습니다." : "신청을 거절했습니다.");
+    } catch (event) {
+      notifyUnavailable?.(event.message || "신청 상태 변경에 실패했습니다.");
+    } finally {
+      setUpdatingApplicationId(null);
+    }
+  };
 
   return (
     <div className="screen">
@@ -526,9 +579,76 @@ function Dashboard({ go, data, apiStatus, currentUser, onLogout, requireAuth }) 
             </>
           )}
           {!isGuest && (
-            <button className="btn btn-secondary" onClick={onLogout} type="button">
-              로그아웃
-            </button>
+            <>
+              <div className="notification-wrap">
+                <button
+                  className={`btn btn-secondary notification-btn ${alertsOpen ? "active" : ""}`}
+                  onClick={() => setAlertsOpen((next) => !next)}
+                  type="button"
+                >
+                  <Icon icon={Bell} />
+                  신청 알림
+                  {pendingAlerts.length > 0 && <span className="notification-count">{pendingAlerts.length}</span>}
+                </button>
+                {alertsOpen && (
+                  <div className="notification-panel">
+                    <div className="notification-panel-head">
+                      <strong>신청 관리</strong>
+                      <span>대기 {pendingAlerts.length}건</span>
+                    </div>
+                    {alertsLoading ? (
+                      <div className="notification-empty">신청 내역을 불러오는 중입니다.</div>
+                    ) : applicationAlerts.length ? (
+                      <div className="notification-list">
+                        {applicationAlerts.map((application) => (
+                          <div key={application.id} className="notification-item">
+                            <button
+                              className="notification-copy"
+                              onClick={() => {
+                                setAlertsOpen(false);
+                                onSelectPost?.(application.post_id);
+                              }}
+                              type="button"
+                            >
+                              <strong>{application.post.title}</strong>
+                              <span>{application.user_nickname} · {formatDateTime(application.created_at)}</span>
+                            </button>
+                            <div className="notification-actions">
+                              <span className={`status-badge app-${application.status}`}>{applicationStatusLabel(application.status)}</span>
+                              {application.status === "pending" && (
+                                <>
+                                  <button
+                                    className="btn btn-primary btn-sm"
+                                    onClick={() => updateApplicationAlert(application, "approved")}
+                                    disabled={updatingApplicationId === application.id}
+                                    type="button"
+                                  >
+                                    승인
+                                  </button>
+                                  <button
+                                    className="btn btn-danger btn-sm"
+                                    onClick={() => updateApplicationAlert(application, "rejected")}
+                                    disabled={updatingApplicationId === application.id}
+                                    type="button"
+                                  >
+                                    거절
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="notification-empty">관리할 신청 내역이 없습니다.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <button className="btn btn-secondary" onClick={onLogout} type="button">
+                로그아웃
+              </button>
+            </>
           )}
           <button className="btn btn-secondary" onClick={() => go("stats")} type="button">
             <Icon icon={Edit3} />
@@ -2353,15 +2473,12 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeletingPost, setIsDeletingPost] = useState(false);
   const [applicationStatus, setApplicationStatus] = useState({ is_applied: false, count: 0 });
-  const [applicants, setApplicants] = useState([]);
   const [applicationAction, setApplicationAction] = useState("idle");
-  const [updatingApplicationId, setUpdatingApplicationId] = useState(null);
   const loadPost = async () => {
     if (!selectedPostId) {
       setPost(null);
       setComments([]);
       setApplicationStatus({ is_applied: false, count: 0 });
-      setApplicants([]);
       setStatus("idle");
       return;
     }
@@ -2376,18 +2493,11 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
       setComments(postComments);
       const nextApplicationStatus = await postsApi.applicationStatus(selectedPostId).catch(() => ({ is_applied: false, count: 0 }));
       setApplicationStatus(nextApplicationStatus);
-      if (currentUser?.id === postDetail.user_id) {
-        const nextApplicants = await postsApi.applications(selectedPostId).catch(() => []);
-        setApplicants(nextApplicants);
-      } else {
-        setApplicants([]);
-      }
       setStatus("idle");
     } catch (event) {
       setPost(null);
       setComments([]);
       setApplicationStatus({ is_applied: false, count: 0 });
-      setApplicants([]);
       setError(event.message || "게시글을 불러오지 못했습니다.");
       setStatus("error");
     }
@@ -2482,21 +2592,6 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
       notifyUnavailable(nextRecruitStatus === "closed" ? "모집을 마감했습니다." : "모집을 재개했습니다.");
     } catch (event) {
       notifyUnavailable(event.message || "모집 상태 변경에 실패했습니다.");
-    }
-  };
-  const updateApplicantStatus = async (applicationId, nextStatus) => {
-    if (!post || !canManagePost || updatingApplicationId) return;
-    setUpdatingApplicationId(applicationId);
-    try {
-      const updated = await postsApi.updateApplication(post.id, applicationId, { status: nextStatus });
-      setApplicants((prev) => prev.map((item) => (item.id === applicationId ? updated : item)));
-      const nextApplicationStatus = await postsApi.applicationStatus(post.id);
-      setApplicationStatus(nextApplicationStatus);
-      await onPostUpdated(post, nextStatus === "approved" ? "신청 승인됨" : "신청 거절됨");
-    } catch (event) {
-      notifyUnavailable(event.message || "신청 상태 변경에 실패했습니다.");
-    } finally {
-      setUpdatingApplicationId(null);
     }
   };
   const cancelApplication = async () => {
@@ -2679,44 +2774,12 @@ function PostDetailScreen({ go, data, selectedPostId, currentUser, onEditPost, o
             {post.is_draft ? (
               <button className="btn btn-secondary full-btn" disabled type="button">임시저장 글</button>
             ) : canManagePost ? (
-              <div className="applicant-box">
+              <div className="applicant-summary-box">
                 <div className="applicant-summary">신청자 {applicationStatus.count}명 · 대기 {applicationStatus.pending_count}명 · 승인 {applicationStatus.approved_count}명</div>
-                {applicants.length ? (
-                  applicants.map((item) => (
-                    <div key={item.id} className="applicant-row">
-                      <div className="sm-av">{item.user_nickname.slice(0, 1)}</div>
-                      <div>
-                        <strong>{item.user_nickname}</strong>
-                        <span>{formatDateTime(item.created_at)} · {applicationStatusLabel(item.status)}</span>
-                      </div>
-                      <div className="applicant-actions">
-                        <span className={`status-badge app-${item.status}`}>{applicationStatusLabel(item.status)}</span>
-                        {item.status !== "approved" && (
-                          <button
-                            className="btn btn-primary btn-sm"
-                            onClick={() => updateApplicantStatus(item.id, "approved")}
-                            disabled={updatingApplicationId === item.id}
-                            type="button"
-                          >
-                            승인
-                          </button>
-                        )}
-                        {item.status !== "rejected" && (
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => updateApplicantStatus(item.id, "rejected")}
-                            disabled={updatingApplicationId === item.id}
-                            type="button"
-                          >
-                            거절
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="muted-sm">아직 신청자가 없습니다.</p>
-                )}
+                <p>신청 승인과 거절은 대시보드 우측 상단 신청 알림에서 관리합니다.</p>
+                <button className="btn btn-secondary full-btn" onClick={() => go("dashboard")} type="button">
+                  신청 알림 보기
+                </button>
               </div>
             ) : post.recruit_status === "closed" ? (
               <button className="btn btn-secondary full-btn" disabled type="button">모집 마감</button>
@@ -3211,7 +3274,19 @@ export default function App() {
   if (screen === "signup") return <SignupScreen go={go} onAuthenticated={authenticate} />;
 
   const pages = {
-    dashboard: <Dashboard go={go} data={appData} apiStatus={apiStatus} currentUser={currentUser} onLogout={logout} requireAuth={requireAuth} />,
+    dashboard: (
+      <Dashboard
+        go={go}
+        data={appData}
+        apiStatus={apiStatus}
+        currentUser={currentUser}
+        onLogout={logout}
+        requireAuth={requireAuth}
+        onSelectPost={openPost}
+        onDataChanged={(status) => reloadAppData(currentUser, status)}
+        notifyUnavailable={notifyUnavailable}
+      />
+    ),
     mypage: currentUser ? (
       <MyPageScreen
         go={go}
@@ -3224,7 +3299,17 @@ export default function App() {
         notifyUnavailable={notifyUnavailable}
       />
     ) : (
-      <Dashboard go={go} data={appData} apiStatus={apiStatus} currentUser={currentUser} onLogout={logout} requireAuth={requireAuth} />
+      <Dashboard
+        go={go}
+        data={appData}
+        apiStatus={apiStatus}
+        currentUser={currentUser}
+        onLogout={logout}
+        requireAuth={requireAuth}
+        onSelectPost={openPost}
+        onDataChanged={(status) => reloadAppData(currentUser, status)}
+        notifyUnavailable={notifyUnavailable}
+      />
     ),
     statsview: <StatsViewScreen go={go} data={appData} />,
     stats: (

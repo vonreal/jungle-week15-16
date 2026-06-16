@@ -68,6 +68,20 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .data-badge.loading { color: var(--blue); background: var(--blue-l); border-color: var(--blue-m); }
 .data-badge.error { color: var(--amber); background: var(--amber-l); border-color: var(--amber-m); }
 .header-btns { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.notification-wrap { position: relative; }
+.notification-btn.active { border-color: var(--blue-m); background: var(--blue-l); color: var(--blue); }
+.notification-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--red); color: #fff; font-size: 10px; font-weight: 900; }
+.notification-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 80; width: min(420px, calc(100vw - 48px)); max-height: 480px; overflow: auto; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); box-shadow: var(--sh-m); }
+.notification-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.notification-panel-head strong { font-size: 14px; color: var(--text); }
+.notification-panel-head span { font-size: 12px; color: var(--text3); font-weight: 800; }
+.notification-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.notification-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.notification-copy { min-width: 0; border: none; background: transparent; text-align: left; }
+.notification-copy strong { display: block; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notification-copy span { display: block; margin-top: 3px; font-size: 11.5px; color: var(--text3); }
+.notification-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.notification-empty { padding: 28px 10px; text-align: center; font-size: 12.5px; color: var(--text2); }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 16px; border-radius: 7px; font-size: 13.5px; font-weight: 600; transition: all .15s; white-space: nowrap; border: none; }
 .btn-primary { background: var(--blue); color: #fff; }
 .btn-primary:hover { background: #2B5FDF; }
@@ -406,7 +420,10 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .condition-row span { font-size: 13px; font-weight: 600; }
 .condition-row strong { font-size: 12px; color: var(--blue); }
 .applicant-box { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.applicant-summary-box { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
 .applicant-summary { font-size: 13px; font-weight: 800; color: var(--text); margin-bottom: 10px; }
+.applicant-summary-box .applicant-summary { margin-bottom: 0; }
+.applicant-summary-box p { font-size: 12.5px; color: var(--text2); line-height: 1.55; }
 .applicant-row { display: flex; align-items: center; gap: 9px; padding: 9px 0; border-bottom: 1px solid var(--border); }
 .applicant-row:last-child { border-bottom: none; }
 .applicant-row strong { display: block; font-size: 13px; color: var(--text); }
@@ -472,8 +489,13 @@ button:disabled { cursor: not-allowed; opacity: .58; }
   .dash-grid, .detail-grid, .mypage-grid { grid-template-columns: 1fr; }
   .password-change-grid { grid-template-columns: 1fr; }
   .page-header { flex-direction: column; }
-  .header-btns { width: 100%; }
+  .header-btns { width: 100%; flex-wrap: wrap; }
   .header-btns .btn { flex: 1; }
+  .notification-wrap { flex: 1 1 100%; }
+  .notification-wrap .notification-btn { width: 100%; }
+  .notification-panel { left: 0; right: auto; width: 100%; }
+  .notification-item { grid-template-columns: 1fr; }
+  .notification-actions { justify-content: flex-start; }
   .upload-grid { flex-direction: column; }
   .analyze-footer { align-items: stretch; flex-direction: column; }
   .score-box { text-align: left; }
