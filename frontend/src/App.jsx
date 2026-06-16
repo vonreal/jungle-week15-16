@@ -1450,6 +1450,7 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
   const [selectedAnalysisId, setSelectedAnalysisId] = useState(analyses[0]?.id ?? null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeletingAnalysis, setIsDeletingAnalysis] = useState(false);
+  const [showAllAnalyses, setShowAllAnalyses] = useState(false);
   useEffect(() => {
     if (!analyses.length) {
       setSelectedAnalysisId(null);
@@ -1462,6 +1463,7 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
 
   const analysis = analyses.find((item) => item.id === selectedAnalysisId) ?? analyses[0] ?? EMPTY_DATA.analysis;
   const hasAnalysis = Boolean(analysis.title);
+  const historyPreview = analyses.slice(0, 3);
   const experiences = analysis.experiences ?? [];
   const counts = {
     core: experiences.filter((item) => item.type === "core").length,
@@ -1510,6 +1512,81 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
     );
   }
 
+  if (showAllAnalyses) {
+    return (
+      <div className="screen">
+        <div className="page-header">
+          <div>
+            <div className="page-eyebrow">JD 분석 결과</div>
+            <h1 className="page-title">전체 분석 이력</h1>
+            <p className="page-sub">총 {analyses.length}개 분석 결과를 최신순으로 확인합니다</p>
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowAllAnalyses(false)} type="button">
+            <Icon icon={ArrowLeft} size={14} />
+            상세로 돌아가기
+          </button>
+        </div>
+
+        <div className="card">
+          <div className="analysis-list full">
+            {analyses.map((item) => (
+              <button
+                key={item.id ?? `${item.title}-${item.createdAt}`}
+                className={`analysis-list-item ${item.id === analysis.id ? "active" : ""}`}
+                onClick={() => {
+                  setSelectedAnalysisId(item.id);
+                  setShowAllAnalyses(false);
+                }}
+                type="button"
+              >
+                <div className="analysis-list-main">
+                  <strong>{item.company ? `${item.company} · ` : ""}{item.title}</strong>
+                  <span>{item.createdAt ?? "분석 날짜 없음"} · {item.scoreHint ?? "스코어 근거 없음"}</span>
+                </div>
+                <div className="analysis-list-side">
+                  <div className="analysis-list-score">{item.score}%</div>
+                  <button
+                    className="analysis-delete"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setDeleteTarget(item);
+                    }}
+                    type="button"
+                    aria-label="분석 결과 삭제"
+                  >
+                    <Icon icon={X} size={14} />
+                  </button>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {deleteTarget && (
+          <div className="modal-backdrop">
+            <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-analysis-title">
+              <div className="modal-icon danger">
+                <Icon icon={X} size={20} />
+              </div>
+              <h2 id="delete-analysis-title" className="modal-title">분석 결과를 삭제할까요?</h2>
+              <p className="modal-desc">
+                {deleteTarget.company ? `${deleteTarget.company} · ` : ""}{deleteTarget.title} 분석 결과와 경험 분류가 삭제됩니다.
+              </p>
+              <div className="modal-actions">
+                <button className="btn btn-secondary" onClick={() => setDeleteTarget(null)} disabled={isDeletingAnalysis} type="button">
+                  취소
+                </button>
+                <button className="btn btn-danger" onClick={deleteAnalysis} disabled={isDeletingAnalysis} type="button">
+                  {isDeletingAnalysis ? "삭제 중" : "삭제"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="screen">
       <div className="page-header">
@@ -1531,9 +1608,16 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
 
       <div className="screen-stack">
         <div className="card">
-          <div className="card-title card-title-spaced">분석 이력</div>
+          <div className="card-title-row">
+            <div className="card-title">분석 이력</div>
+            {analyses.length > 3 && (
+              <button className="text-action" onClick={() => setShowAllAnalyses(true)} type="button">
+                전체 {analyses.length}개 보기
+              </button>
+            )}
+          </div>
           <div className="analysis-list">
-            {analyses.map((item) => (
+            {historyPreview.map((item) => (
               <button
                 key={item.id ?? `${item.title}-${item.createdAt}`}
                 className={`analysis-list-item ${item.id === analysis.id ? "active" : ""}`}
