@@ -32,14 +32,19 @@ async def create_recommendation(
         select(JDRequirement.skill_name).where(JDRequirement.jd_id.in_(jd_ids))
     )
     user_skills_result = await session.execute(
-        select(Skill.name)
+        select(Skill.name, UserSkill.level)
         .join(UserSkill, UserSkill.skill_id == Skill.id)
         .where(UserSkill.user_id == current_user.id)
     )
+    user_skills = [
+        f"{name}({level})"
+        for name, level in user_skills_result.all()
+    ]
 
     generated = await PortfolioAgentService().generate(
         list(requirements_result.scalars().all()),
-        list(user_skills_result.scalars().all()),
+        user_skills,
+        [analysis.gap_summary for analysis in analyses],
     )
     recommendation = PortfolioRecommendation(
         user_id=current_user.id,

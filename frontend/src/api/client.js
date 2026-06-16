@@ -132,3 +132,8 @@ export const jdApi = {
   create: (payload) => apiFetch("/jd", { method: "POST", body: JSON.stringify(payload) }),
   analyze: (jdId) => apiFetch(`/jd/${jdId}/analyze`, { method: "POST" }),
 };
+
+export const recommendationsApi = {
+  list: () => apiFetch("/recommendations"),
+  create: (payload) => apiFetch("/recommendations", { method: "POST", body: JSON.stringify(payload) }),
+};

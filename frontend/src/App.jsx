@@ -30,7 +30,7 @@ import {
 import Chip from "./components/Chip.jsx";
 import LevelPip from "./components/LevelPip.jsx";
 import RadarChart from "./components/RadarChart.jsx";
-import { authApi, documentsApi, jdApi, postsApi, skillsApi } from "./api/client.js";
+import { authApi, documentsApi, jdApi, postsApi, recommendationsApi, skillsApi } from "./api/client.js";
 
 const NAV_ICONS = {
   dashboard: Home,
@@ -260,6 +260,7 @@ const EMPTY_DATA = {
     realistic: [],
     actions: [],
   },
+  recommendations: [],
   posts: [],
   drafts: [],
   applications: [],
@@ -269,6 +270,62 @@ const EMPTY_DATA = {
   experiences: [],
   skillSuggestions: [],
 };
+
+function textToCards(text = "", fallbackTitle = "추천 항목") {
+  const lines = String(text)
+    .split(/\n+/)
+    .map((line) => line.replace(/^[-*•\d.\s]+/, "").trim())
+    .filter(Boolean);
+  const source = lines.length ? lines : [String(text).trim()].filter(Boolean);
+  return source.slice(0, 4).map((line, index) => {
+    const [title, ...rest] = line.split(/[:：-]/);
+    const cleanTitle = (title || `${fallbackTitle} ${index + 1}`).trim();
+    const desc = rest.join(" - ").trim() || line;
+    const stack = [...new Set((line.match(/[A-Za-z][A-Za-z0-9+/#.-]{1,}/g) ?? []).slice(0, 5))];
+    return {
+      title: cleanTitle.slice(0, 48),
+      desc,
+      stack: stack.length ? stack : ["CareerBuddy"],
+    };
+  });
+}
+
+function textToActions(text = "") {
+  const lines = String(text)
+    .split(/\n+/)
+    .map((line) => line.replace(/^[-*•\d.\s]+/, "").trim())
+    .filter(Boolean);
+  return (lines.length ? lines : [String(text).trim()].filter(Boolean)).slice(0, 6).map((line, index) => ({
+    icon: ["1", "2", "3", "4", "5", "6"][index] ?? String(index + 1),
+    title: line,
+    week: `${index + 1}단계`,
+    tone: ["blue", "purple", "green", "amber"][index % 4],
+  }));
+}
+
+function normalizePortfolioRecommendation(recommendation) {
+  if (!recommendation) return EMPTY_DATA.portfolio;
+  return {
+    ideal: textToCards(recommendation.ideal_version, "이상적 프로젝트"),
+    realistic: textToCards(recommendation.realistic_version, "현실적 프로젝트"),
+    actions: textToActions(recommendation.action_plan),
+  };
+}
+
+function buildMarketFromAnalyses(analyses = []) {
+  const counts = new Map();
+  analyses.forEach((analysis) => {
+    (analysis.requirements ?? []).forEach((item) => {
+      const name = item.skill_name;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    });
+  });
+  const max = Math.max(...counts.values(), 1);
+  return [...counts.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 6)
+    .map(([name, count]) => ({ name, pct: Math.round((count / max) * 100) }));
+}
 
 function buildSkillsByCategory(skillCatalog = [], userSkills = []) {
   const savedLevels = new Map(userSkills.map((item) => [item.skill.id, item.level]));
@@ -370,7 +427,9 @@ function normalizeAppState(
   documents = [],
   experiences = [],
   skillSuggestions = [],
+  recommendations = [],
 ) {
+  const latestRecommendation = recommendations[0] ?? null;
   const base = {
     ...EMPTY_DATA,
     source: state?.source ?? "empty",
@@ -380,6 +439,9 @@ function normalizeAppState(
     recentJds: buildRecentJds(analyses, userSkills),
     analysis: normalizeAnalysis(analyses[0], userSkills),
     analyses: analyses.map((analysis) => normalizeAnalysis(analysis, userSkills)),
+    market: buildMarketFromAnalyses(analyses),
+    portfolio: normalizePortfolioRecommendation(latestRecommendation),
+    recommendations,
     posts: postsPage?.items ?? [],
     drafts,
     applications,
@@ -419,7 +481,7 @@ function normalizeAppState(
 }
 
 async function fetchAppState(currentUser = null) {
-  const [skillCatalog, userSkills, skillSuggestions, postsPage, drafts, applications, analyses, documents, experiences] = await Promise.all([
+  const [skillCatalog, userSkills, skillSuggestions, postsPage, drafts, applications, analyses, documents, experiences, recommendations] = await Promise.all([
     skillsApi.list(),
     currentUser ? skillsApi.mySkills() : Promise.resolve([]),
     currentUser ? skillsApi.suggestions() : Promise.resolve([]),
@@ -429,6 +491,7 @@ async function fetchAppState(currentUser = null) {
     currentUser ? jdApi.analyses() : Promise.resolve([]),
     currentUser ? documentsApi.list() : Promise.resolve([]),
     currentUser ? documentsApi.experiences() : Promise.resolve([]),
+    currentUser ? recommendationsApi.list() : Promise.resolve([]),
   ]);
   return normalizeAppState(
     null,
@@ -441,6 +504,7 @@ async function fetchAppState(currentUser = null) {
     documents,
     experiences,
     skillSuggestions,
+    recommendations,
   );
 }
 
@@ -2462,20 +2526,63 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
   );
 }
 
-function PortfolioScreen({ data }) {
+function PortfolioScreen({ data, onGenerated, requireAuth, notifyUnavailable, setGlobalLoading }) {
+  const [isGenerating, setIsGenerating] = useState(false);
   const hasRecommendation = data.portfolio.ideal.length || data.portfolio.realistic.length || data.portfolio.actions.length;
+  const analysisIds = data.analyses.map((analysis) => analysis.id).filter(Boolean);
+  const generateRecommendation = async () => {
+    if (!requireAuth("포트폴리오 추천 생성은 로그인 후 사용할 수 있습니다.")) return;
+    if (!analysisIds.length) {
+      notifyUnavailable?.("JD 분석 결과가 있어야 포트폴리오 추천을 생성할 수 있습니다.");
+      return;
+    }
+    setIsGenerating(true);
+    setGlobalLoading?.({
+      title: "포트폴리오 추천 Agent 실행 중입니다",
+      description: "여러 JD 분석과 내 스탯을 종합해 이상적/현실적 포트폴리오와 액션 플랜을 생성합니다.",
+      steps: ["공통 요구사항 분석", "이상적 포트폴리오 생성", "현실적 버전 생성", "액션 플랜 저장"],
+      activeStep: 0,
+    });
+    try {
+      setGlobalLoading?.({
+        title: "포트폴리오 추천 Agent 실행 중입니다",
+        description: "공통 요구사항을 바탕으로 포트폴리오 전략을 작성하고 있습니다.",
+        steps: ["공통 요구사항 분석", "이상적 포트폴리오 생성", "현실적 버전 생성", "액션 플랜 저장"],
+        activeStep: 1,
+      });
+      await recommendationsApi.create({ analysis_ids: analysisIds });
+      setGlobalLoading?.({
+        title: "추천 결과를 저장하는 중입니다",
+        description: "생성된 추천 결과를 DB에 저장하고 화면을 갱신합니다.",
+        steps: ["공통 요구사항 분석", "이상적 포트폴리오 생성", "현실적 버전 생성", "액션 플랜 저장"],
+        activeStep: 3,
+      });
+      await onGenerated?.();
+    } catch (error) {
+      notifyUnavailable?.(error.message || "포트폴리오 추천 생성에 실패했습니다.");
+    } finally {
+      setIsGenerating(false);
+      setGlobalLoading?.(null);
+    }
+  };
   if (!hasRecommendation) {
     return (
       <div className="screen">
-        <div className="page-header block">
-          <div className="page-eyebrow">포트폴리오 추천</div>
-          <h1 className="page-title">아직 추천 결과가 없습니다</h1>
-          <p className="page-sub">여러 JD 분석과 내 스탯이 준비되면 추천이 생성됩니다</p>
+        <div className="page-header">
+          <div>
+            <div className="page-eyebrow">포트폴리오 추천</div>
+            <h1 className="page-title">아직 추천 결과가 없습니다</h1>
+            <p className="page-sub">여러 JD 분석과 내 스탯이 준비되면 추천이 생성됩니다</p>
+          </div>
+          <button className="btn btn-primary" onClick={generateRecommendation} disabled={isGenerating || !analysisIds.length} type="button">
+            <Icon icon={Bot} />
+            {isGenerating ? "생성 중" : "Agent 추천 생성"}
+          </button>
         </div>
         <div className="card">
           <EmptyState
             title="추천 생성 전"
-            description="포트폴리오 추천 Agent는 5단계에서 연결할 예정입니다. 현재 저장된 추천 데이터는 없습니다."
+            description={analysisIds.length ? "Agent 추천 생성을 누르면 전체 JD 분석을 종합해 추천을 저장합니다." : "먼저 JD 분석을 1개 이상 생성해주세요."}
           />
         </div>
       </div>
@@ -2484,10 +2591,16 @@ function PortfolioScreen({ data }) {
 
   return (
     <div className="screen">
-      <div className="page-header block">
-        <div className="page-eyebrow">포트폴리오 추천</div>
-        <h1 className="page-title">합격을 위한 최적 경로</h1>
-        <p className="page-sub">JD 분석과 내 스탯을 바탕으로 구성된 맞춤 전략입니다</p>
+      <div className="page-header">
+        <div>
+          <div className="page-eyebrow">포트폴리오 추천</div>
+          <h1 className="page-title">합격을 위한 최적 경로</h1>
+          <p className="page-sub">JD 분석과 내 스탯을 바탕으로 구성된 맞춤 전략입니다</p>
+        </div>
+        <button className="btn btn-primary" onClick={generateRecommendation} disabled={isGenerating || !analysisIds.length} type="button">
+          <Icon icon={Bot} />
+          {isGenerating ? "생성 중" : "다시 생성"}
+        </button>
       </div>
 
       <div className="screen-stack">
@@ -3789,7 +3902,15 @@ export default function App() {
         setGlobalLoading={setGlobalLoading}
       />
     ),
-    portfolio: <PortfolioScreen data={appData} />,
+    portfolio: (
+      <PortfolioScreen
+        data={appData}
+        onGenerated={() => reloadAppData(currentUser, { label: "포트폴리오 추천 생성됨", tone: "ok" })}
+        requireAuth={requireAuth}
+        notifyUnavailable={notifyUnavailable}
+        setGlobalLoading={setGlobalLoading}
+      />
+    ),
     posts: <PostListScreen go={go} data={appData} onSelectPost={openPost} />,
     "post-detail": <PostDetailScreen go={go} data={appData} selectedPostId={selectedPostId} currentUser={currentUser} onEditPost={editPost} onDeleted={handlePostDeleted} onPostUpdated={handlePostUpdated} requireAuth={requireAuth} notifyUnavailable={notifyUnavailable} />,
     "post-write": <WritePostScreen go={go} data={appData} editingPost={editingPost} onSaved={handlePostSaved} notifyUnavailable={notifyUnavailable} />,

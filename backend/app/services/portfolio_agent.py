@@ -15,28 +15,46 @@ class PortfolioAgentService:
     def __init__(self) -> None:
         self.llm = LLMClient()
 
-    async def generate(self, requirement_names: list[str], user_skill_names: list[str]) -> dict[str, str]:
+    async def generate(
+        self,
+        requirement_names: list[str],
+        user_skills: list[str],
+        gap_summaries: list[str] | None = None,
+    ) -> dict[str, str]:
+        gap_summaries = gap_summaries or []
         if StateGraph is None:
-            return await self._fallback(requirement_names, user_skill_names)
+            return await self._fallback(requirement_names, user_skills)
 
         async def common_requirements(state: dict) -> dict:
             counter = Counter(state["requirements"])
             return {**state, "common": [name for name, _ in counter.most_common(8)]}
 
         async def ideal_portfolio(state: dict) -> dict:
-            prompt = f"다음 요구사항을 모두 만족하는 이상적 포트폴리오를 한국어로 작성하세요: {state['common']}"
+            prompt = (
+                "여러 개발자 채용공고의 공통 요구사항을 모두 만족하는 이상적 포트폴리오를 한국어로 작성하세요.\n"
+                "3~4개의 프로젝트 제안으로 나누고, 각 줄은 '프로젝트명: 설명 - 핵심스택' 형식으로 작성하세요.\n"
+                f"공통 요구사항: {state['common']}\n"
+                f"기존 갭 요약: {state['gap_summaries'][:3]}"
+            )
             return {**state, "ideal": await self.llm.complete(prompt)}
 
         async def realistic_portfolio(state: dict) -> dict:
             prompt = (
-                "사용자의 현재 스탯으로 만들 수 있는 현실적 포트폴리오 버전을 작성하세요.\n"
+                "사용자의 현재 스탯으로 2~4주 안에 만들 수 있는 현실적 포트폴리오 버전을 작성하세요.\n"
+                "3~4개의 항목으로 나누고, 각 줄은 '프로젝트명: 설명 - 핵심스택' 형식으로 작성하세요.\n"
                 f"요구사항: {state['common']}\n현재 스탯: {state['user_skills']}"
             )
             return {**state, "realistic": await self.llm.complete(prompt)}
 
         async def action_plan(state: dict) -> dict:
-            missing = [item for item in state["common"] if item not in state["user_skills"]]
-            prompt = f"다음 부족 역량을 6주 액션 플랜으로 작성하세요: {missing}"
+            owned = {str(item).split("(")[0] for item in state["user_skills"]}
+            missing = [item for item in state["common"] if item not in owned]
+            prompt = (
+                "다음 부족 역량을 6단계 액션 플랜으로 작성하세요.\n"
+                "각 줄은 바로 실행 가능한 작업 한 문장으로 작성하세요.\n"
+                f"부족 역량: {missing}\n"
+                f"기존 갭 요약: {state['gap_summaries'][:3]}"
+            )
             return {**state, "action": await self.llm.complete(prompt)}
 
         graph = StateGraph(dict)
@@ -50,7 +68,11 @@ class PortfolioAgentService:
         graph.add_edge("realistic", "action")
         graph.add_edge("action", END)
         result = await graph.compile().ainvoke(
-            {"requirements": requirement_names, "user_skills": user_skill_names}
+            {
+                "requirements": requirement_names,
+                "user_skills": user_skills,
+                "gap_summaries": gap_summaries,
+            }
         )
         return {
             "ideal_version": result["ideal"],
@@ -60,10 +82,10 @@ class PortfolioAgentService:
 
     async def _fallback(self, requirement_names: list[str], user_skill_names: list[str]) -> dict[str, str]:
         common = [name for name, _ in Counter(requirement_names).most_common(8)]
-        missing = [item for item in common if item not in user_skill_names]
+        owned = {str(item).split("(")[0] for item in user_skill_names}
+        missing = [item for item in common if item not in owned]
         return {
             "ideal_version": " / ".join(common) or "JD 공통 요구사항을 먼저 축적하세요.",
             "realistic_version": "현재 보유 스탯: " + (", ".join(user_skill_names) or "스탯 입력 필요"),
             "action_plan": "우선 보완: " + (", ".join(missing) or "현재 스탯을 포트폴리오 산출물로 정리"),
         }
-
