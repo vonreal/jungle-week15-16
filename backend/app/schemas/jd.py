@@ -56,5 +56,7 @@ class JDAnalysisRead(BaseModel):
     jd_company: str | None
     gap_summary: str
     created_at: datetime
+    needs_reanalysis: bool = False
+    latest_document_at: datetime | None = None
     requirements: list[JDRequirementRead] = []
     classifications: list[ExperienceClassificationRead] = []

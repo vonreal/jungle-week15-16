@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, SessionDep
@@ -13,6 +13,7 @@ from app.models import (
     JDRequirement,
     JobDescription,
     Skill,
+    UserDocument,
     UserExperience,
     UserSkill,
 )
@@ -87,6 +88,27 @@ async def analyze_jd(
     if jd is None or jd.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="채용공고를 찾을 수 없습니다.")
 
+    return await _run_jd_analysis(session, current_user.id, jd)
+
+
+@router.post("/analyses/{analysis_id}/reanalyze", response_model=JDAnalysisRead)
+async def reanalyze_jd(
+    analysis_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> dict:
+    analysis = await session.get(JDAnalysis, analysis_id)
+    if analysis is None or analysis.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="분석 결과를 찾을 수 없습니다.")
+
+    jd = await session.get(JobDescription, analysis.jd_id)
+    if jd is None or jd.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="채용공고를 찾을 수 없습니다.")
+
+    return await _run_jd_analysis(session, current_user.id, jd)
+
+
+async def _run_jd_analysis(session: SessionDep, user_id: uuid.UUID, jd: JobDescription) -> dict:
     analyzer = JDAnalyzerService()
     requirements = analyzer.extract_requirements(jd.raw_text)
     await session.execute(delete(JDRequirement).where(JDRequirement.jd_id == jd.id))
@@ -99,18 +121,18 @@ async def analyze_jd(
     user_skill_result = await session.execute(
         select(Skill.name, UserSkill.level)
         .join(UserSkill, UserSkill.skill_id == Skill.id)
-        .where(UserSkill.user_id == current_user.id)
+        .where(UserSkill.user_id == user_id)
     )
     user_skills = list(user_skill_result.all())
-    similar_chunks = await RAGService().similar_chunks(session, jd.raw_text, user_id=current_user.id)
+    similar_chunks = await RAGService().similar_chunks(session, jd.raw_text, user_id=user_id)
     gap_summary = await analyzer.summarize_gap(jd.raw_text, user_skills, similar_chunks)
 
-    analysis = JDAnalysis(jd_id=jd.id, user_id=current_user.id, gap_summary=gap_summary)
+    analysis = JDAnalysis(jd_id=jd.id, user_id=user_id, gap_summary=gap_summary)
     session.add(analysis)
     await session.flush()
 
     exp_result = await session.execute(
-        select(UserExperience).where(UserExperience.user_id == current_user.id)
+        select(UserExperience).where(UserExperience.user_id == user_id)
     )
     req_names = [item["skill_name"] for item in requirements]
     class_models = []
@@ -139,11 +161,13 @@ async def analyze_jd(
         select(JDRequirement).where(JDRequirement.jd_id == loaded_analysis.jd_id)
     )
 
-    return {
-        **JDAnalysisRead.model_validate(loaded_analysis).model_dump(),
-        "requirements": list(req_result.scalars().all()),
-        "classifications": list(loaded_analysis.classifications),
-    }
+    latest_document_at = await _latest_document_at(session, user_id)
+    return _analysis_response(
+        loaded_analysis,
+        list(req_result.scalars().all()),
+        list(loaded_analysis.classifications),
+        latest_document_at,
+    )
 
 
 @router.get("/analyses", response_model=list[JDAnalysisRead])
@@ -159,16 +183,18 @@ async def list_analyses(session: SessionDep, current_user: CurrentUser) -> list[
     )
     analyses = result.scalars().unique().all()
     rows = []
+    latest_document_at = await _latest_document_at(session, current_user.id)
     for analysis in analyses:
         req_result = await session.execute(
             select(JDRequirement).where(JDRequirement.jd_id == analysis.jd_id)
         )
         rows.append(
-            {
-                **JDAnalysisRead.model_validate(analysis).model_dump(),
-                "requirements": list(req_result.scalars().all()),
-                "classifications": list(analysis.classifications),
-            }
+            _analysis_response(
+                analysis,
+                list(req_result.scalars().all()),
+                list(analysis.classifications),
+                latest_document_at,
+            )
         )
     return rows
 
@@ -186,3 +212,28 @@ async def delete_analysis(
     await session.delete(analysis)
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+async def _latest_document_at(session: SessionDep, user_id: uuid.UUID):
+    result = await session.execute(
+        select(func.max(UserDocument.created_at)).where(
+            UserDocument.user_id == user_id,
+            UserDocument.type.in_(["resume", "portfolio"]),
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+def _analysis_response(
+    analysis: JDAnalysis,
+    requirements: list[JDRequirement],
+    classifications: list[ExperienceClassification],
+    latest_document_at,
+) -> dict:
+    return {
+        **JDAnalysisRead.model_validate(analysis).model_dump(),
+        "needs_reanalysis": bool(latest_document_at and analysis.created_at < latest_document_at),
+        "latest_document_at": latest_document_at,
+        "requirements": requirements,
+        "classifications": classifications,
+    }

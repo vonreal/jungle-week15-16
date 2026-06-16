@@ -298,10 +298,13 @@ function normalizeAnalysis(analysis, userSkills = []) {
   const classifications = analysis.classifications ?? [];
   return {
     id: analysis.id,
+    jdId: analysis.jd_id,
     title: analysis.jd_title,
     company: analysis.jd_company,
     score,
     createdAt: formatDateTime(analysis.created_at),
+    needsReanalysis: Boolean(analysis.needs_reanalysis),
+    latestDocumentAt: formatDateTime(analysis.latest_document_at),
     requirements: requirements.map((item) => `${item.skill_name} · ${item.importance === "required" ? "필수" : "우대"}`),
     experiences: classifications.map((item) => ({
       type: item.classification === "essential" ? "required" : item.classification,
@@ -1445,7 +1448,7 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed, setGlob
   );
 }
 
-function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
+function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, setGlobalLoading }) {
   const analyses = data.analyses?.length ? data.analyses : data.analysis?.title ? [data.analysis] : [];
   const [selectedAnalysisId, setSelectedAnalysisId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -1468,6 +1471,22 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
     direct: "직접 일치",
     related: "연관 반영",
     none: "미보유",
+  };
+  const reanalyze = async (target = analysis) => {
+    if (!target?.id) return;
+    setGlobalLoading?.({
+      title: "업데이트된 정보로 재분석 중입니다",
+      description: "이력서/포트폴리오 변경사항을 반영해 JD 갭과 경험 분류를 다시 계산합니다",
+    });
+    try {
+      const nextAnalysis = await jdApi.reanalyze(target.id);
+      await onReanalyzed?.(nextAnalysis);
+      setSelectedAnalysisId(nextAnalysis.id);
+    } catch (event) {
+      notifyUnavailable?.(event.message || "재분석에 실패했습니다.");
+    } finally {
+      setGlobalLoading?.(null);
+    }
   };
   const deleteAnalysis = async () => {
     if (!deleteTarget?.id) return;
@@ -1535,10 +1554,25 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
                 type="button"
               >
                 <div className="analysis-list-main">
-                  <strong>{item.company ? `${item.company} · ` : ""}{item.title}</strong>
+                  <strong>
+                    {item.company ? `${item.company} · ` : ""}{item.title}
+                    {item.needsReanalysis && <span className="stale-badge">재분석 필요</span>}
+                  </strong>
                   <span>{item.createdAt ?? "분석 날짜 없음"} · {item.scoreHint ?? "스코어 근거 없음"}</span>
                 </div>
                 <div className="analysis-list-side">
+                  {item.needsReanalysis && (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        reanalyze(item);
+                      }}
+                      type="button"
+                    >
+                      재분석
+                    </button>
+                  )}
                   <div className="analysis-list-score">{item.score}%</div>
                   <button
                     className="analysis-delete"
@@ -1598,6 +1632,11 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
             포트폴리오 추천
             <Icon icon={ArrowRight} size={14} />
           </button>
+          {analysis.needsReanalysis && (
+            <button className="btn btn-primary btn-sm" onClick={() => reanalyze(analysis)} type="button">
+              업데이트 정보로 재분석
+            </button>
+          )}
           <button className="btn btn-secondary btn-sm" onClick={() => setSelectedAnalysisId(null)} type="button">
             <Icon icon={ArrowLeft} size={14} />
             목록으로
@@ -1606,6 +1645,18 @@ function AnalysisScreen({ go, data, onDeleted, notifyUnavailable }) {
       </div>
 
       <div className="screen-stack">
+        {analysis.needsReanalysis && (
+          <div className="stale-callout">
+            <div>
+              <strong>업데이트된 이력서/포트폴리오가 있습니다</strong>
+              <p>{analysis.latestDocumentAt ?? "최근 문서"} 이후의 정보가 아직 이 분석에 반영되지 않았습니다.</p>
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={() => reanalyze(analysis)} type="button">
+              재분석
+            </button>
+          </div>
+        )}
+
         <div className="card">
           <div className="card-title card-title-spaced">JD 핵심 요구사항</div>
           <div className="req-grid">
@@ -2974,6 +3025,9 @@ export default function App() {
     await reloadAppData(currentUser, { label: "JD 분석 완료", tone: "ok" });
     setScreen("analysis");
   };
+  const handleAnalysisReanalyzed = async () => {
+    await reloadAppData(currentUser, { label: "JD 재분석 완료", tone: "ok" });
+  };
   const handleProfileUpdated = async (updatedUser) => {
     setCurrentUser(updatedUser);
     await reloadAppData(updatedUser, { label: "프로필 저장됨", tone: "ok" });
@@ -3057,7 +3111,9 @@ export default function App() {
         go={go}
         data={appData}
         onDeleted={() => reloadAppData(currentUser, { label: "분석 결과 삭제됨", tone: "ok" })}
+        onReanalyzed={handleAnalysisReanalyzed}
         notifyUnavailable={notifyUnavailable}
+        setGlobalLoading={setGlobalLoading}
       />
     ),
     portfolio: <PortfolioScreen data={appData} />,
