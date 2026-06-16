@@ -2295,26 +2295,47 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
         </div>
 
         <div className="card">
-          <div className="card-title">스코어 근거 · JD 최적 스탯 비교</div>
+          <div className="card-title">공고 · 사용자 스탯 비교</div>
           <p className="card-sub">필수 요구사항은 운영 가능, 우대 요구사항은 원리 이해 수준을 목표로 계산합니다</p>
-          <div className="score-detail-list">
-            {(analysis.scoreDetails ?? []).map((item) => (
-              <div key={`${analysis.id}-${item.name}`} className="score-detail-row">
-                <div className="score-detail-main">
-                  <div className="score-detail-head">
-                    <strong>{item.name}</strong>
-                    <span className={`score-kind ${item.kind}`}>{relationLabel[item.kind] ?? "미보유"}</span>
-                  </div>
-                  <div className="score-detail-meta">
-                    JD 최적 스탯: {LV_LABELS[item.targetLevel - 1]} · 내 스탯: {item.matchedSkillName ? `${item.matchedSkillName} ${LV_LABELS[item.userLevel - 1]}` : item.kind === "untracked" ? "스탯 카탈로그에 아직 없는 항목" : "매칭 없음"}
-                  </div>
-                  <div className="score-bar" aria-hidden="true">
-                    <div className="score-bar-fill" style={{ width: `${item.contribution}%` }} />
-                  </div>
-                </div>
-                <div className="score-detail-pct">{item.contribution}%</div>
-              </div>
-            ))}
+          <div className="comparison-table-wrap">
+            <table className="comparison-table">
+              <thead>
+                <tr>
+                  <th>요구 역량</th>
+                  <th>공고 기준</th>
+                  <th>내 상태</th>
+                  <th>판정</th>
+                  <th>반영</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(analysis.scoreDetails ?? []).map((item) => (
+                  <tr key={`${analysis.id}-${item.name}`}>
+                    <td>
+                      <strong>{item.name}</strong>
+                      <span>{item.importance === "required" ? "필수" : "우대"}</span>
+                    </td>
+                    <td>{LV_LABELS[item.targetLevel - 1]}</td>
+                    <td>
+                      {item.matchedSkillName
+                        ? `${item.matchedSkillName} · ${LV_LABELS[item.userLevel - 1]}`
+                        : item.kind === "untracked"
+                          ? "스탯 후보/직접 추가 필요"
+                          : "매칭 없음"}
+                    </td>
+                    <td><span className={`score-kind ${item.kind}`}>{relationLabel[item.kind] ?? "미보유"}</span></td>
+                    <td>
+                      <div className="table-score-cell">
+                        <span>{item.contribution}%</span>
+                        <div className="score-bar" aria-hidden="true">
+                          <div className="score-bar-fill" style={{ width: `${item.contribution}%` }} />
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -2399,7 +2420,6 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
         <div className="card">
           <div className="card-title">갭 파악 결과</div>
           <p className="card-sub">합격을 위해 보완이 필요한 핵심 역량</p>
-          <MarkdownSummary text={analysis.gapSummary} />
           <div className="gap-grid">
             {analysis.gaps.map((gap) => (
               <div key={gap.name} className="gap-box">
@@ -2408,6 +2428,12 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">AI 요약</div>
+          <p className="card-sub">공고와 사용자 스탯/경험을 비교한 상세 설명입니다</p>
+          <MarkdownSummary text={analysis.gapSummary} />
         </div>
       </div>
 
