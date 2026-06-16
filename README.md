@@ -42,7 +42,7 @@ curl -X POST http://localhost:8000/api/v1/skills/seed
 - 게시물 CRUD, 댓글, 태그, 페이징, 검색 API
 - skills 시딩, 내 스탯 입력/조회, 레이더 차트 UI
 - 문서 업로드와 규칙 기반 경험 추출
-- JD 링크/텍스트/이미지 입력 API
+- JD 링크/텍스트 입력 API
 - MCP Python SDK 기반 채용공고 링크 크롤링 도구(`fetch_job_posting`)
 - JD 요구사항 추출, 갭 요약, 경험 3분류
 - pgvector 기반 RAG 저장/검색 경계

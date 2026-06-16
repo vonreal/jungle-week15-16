@@ -11,7 +11,7 @@ class JDCreate(BaseModel):
     company: str | None = None
     source_url: str | None = None
     raw_text: str | None = None
-    input_type: str = Field(pattern="^(link|text|image)$")
+    input_type: str = Field(pattern="^(link|text)$")
 
 
 class JDRead(BaseModel):

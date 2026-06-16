@@ -1945,10 +1945,6 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed, setGlob
       setError("채용공고 내용을 입력해주세요.");
       return;
     }
-    if (tab === "image") {
-      notifyUnavailable("이미지 OCR은 다음 단계에서 실제 업로드와 함께 연결하겠습니다.");
-      return;
-    }
     setStatus("saving");
     setGlobalLoading({
       title: "JD를 분석하는 중입니다",
@@ -2000,7 +1996,6 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed, setGlob
           {[
             ["link", "링크 입력"],
             ["text", "텍스트 입력"],
-            ["image", "사진 업로드"],
           ].map(([value, label]) => (
             <button key={value} className={`tab-btn ${tab === value ? "active" : ""}`} onClick={() => setTab(value)} type="button">
               {label}
@@ -2082,22 +2077,6 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed, setGlob
                 placeholder="채용공고 내용을 붙여넣기 하세요"
               />
             </div>
-          )}
-
-          {tab === "image" && (
-            <button
-              className="upload-zone upload-large"
-              onClick={() =>
-                requireAuth("사진 업로드와 OCR 분석은 로그인 후 사용할 수 있습니다.") &&
-                notifyUnavailable("JD 이미지 OCR 처리는 4단계에서 연결할 예정입니다.")
-              }
-              type="button"
-            >
-              <Icon icon={Upload} size={42} />
-              <div className="upload-title">이미지를 드래그하거나 클릭하세요</div>
-              <div className="upload-format">JPG, PNG, PDF · 최대 10MB</div>
-              <span className="btn btn-secondary">파일 선택</span>
-            </button>
           )}
 
           <div className="analyze-footer">

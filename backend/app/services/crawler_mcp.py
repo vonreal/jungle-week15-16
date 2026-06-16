@@ -3,7 +3,6 @@ from __future__ import annotations
 import sys
 from typing import Any
 
-import httpx
 from bs4 import BeautifulSoup
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
@@ -25,10 +24,7 @@ class MCPCrawlerService:
     """Fetch job posting text through an MCP Python SDK tool server."""
 
     async def fetch_text(self, url: str) -> str:
-        try:
-            return await self._fetch_via_mcp(url)
-        except Exception:
-            return await self._fetch_direct(url)
+        return await self._fetch_via_mcp(url)
 
     async def _fetch_via_mcp(self, url: str) -> str:
         server = StdioServerParameters(
@@ -43,12 +39,6 @@ class MCPCrawlerService:
                 if not text:
                     raise ValueError("MCP crawler returned empty text")
                 return text
-
-    async def _fetch_direct(self, url: str) -> str:
-        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
-            response = await client.get(url)
-            response.raise_for_status()
-        return extract_readable_text(response.text)
 
     def _tool_result_text(self, result: Any) -> str:
         parts = []

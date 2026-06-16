@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import selectinload
 
@@ -20,7 +20,6 @@ from app.models import (
 from app.schemas.jd import JDAnalysisRead, JDCreate, JDRead
 from app.services.crawler_mcp import MCPCrawlerService
 from app.services.jd_analyzer import JDAnalyzerService
-from app.services.ocr import OCRService
 from app.services.rag import RAGService
 
 router = APIRouter()
@@ -32,7 +31,16 @@ async def create_jd(payload: JDCreate, session: SessionDep, current_user: Curren
     if payload.input_type == "link":
         if not payload.source_url:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="채용공고 링크를 입력해주세요.")
-        raw_text = raw_text or await MCPCrawlerService().fetch_text(payload.source_url)
+        try:
+            raw_text = raw_text or await MCPCrawlerService().fetch_text(payload.source_url)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "링크에서 채용공고 본문을 가져오지 못했습니다. "
+                    "텍스트 입력 탭에서 공고 내용을 복사해 붙여넣어 주세요."
+                ),
+            ) from exc
     if not raw_text:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="채용공고 내용을 입력해주세요.")
 
@@ -50,22 +58,6 @@ async def create_jd(payload: JDCreate, session: SessionDep, current_user: Curren
     await session.commit()
     await session.refresh(jd)
     return jd
-
-
-@router.post("/image", response_model=JDRead, status_code=status.HTTP_201_CREATED)
-async def create_jd_from_image(
-    session: SessionDep,
-    current_user: CurrentUser,
-    title: str = Form(...),
-    company: str | None = Form(default=None),
-    file: UploadFile = File(...),
-) -> JobDescription:
-    raw_text = await OCRService().extract_text(file.filename or "jd-image", await file.read())
-    return await create_jd(
-        JDCreate(title=title, company=company, raw_text=raw_text, input_type="image"),
-        session,
-        current_user,
-    )
 
 
 @router.get("", response_model=list[JDRead])
