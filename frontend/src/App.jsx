@@ -211,6 +211,7 @@ const EMPTY_DATA = {
   radar: [],
   skills: {},
   analysis: {
+    id: null,
     title: "",
     company: "",
     score: 0,
@@ -219,6 +220,7 @@ const EMPTY_DATA = {
     experiences: [],
     gaps: [],
   },
+  analyses: [],
   recentJds: [],
   market: [],
   portfolio: {
@@ -273,6 +275,7 @@ function normalizeAnalysis(analysis, userSkills = []) {
   const missingRequirements = requirements.filter((_, index) => requirementScores[index]?.value < 0.7);
   const classifications = analysis.classifications ?? [];
   return {
+    id: analysis.id,
     title: analysis.jd_title,
     company: analysis.jd_company,
     score,
@@ -312,6 +315,7 @@ function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage 
     radar: buildRadar(userSkills),
     recentJds: buildRecentJds(analyses, userSkills),
     analysis: normalizeAnalysis(analyses[0], userSkills),
+    analyses: analyses.map((analysis) => normalizeAnalysis(analysis, userSkills)),
     posts: postsPage?.items ?? [],
     drafts,
     applications,
@@ -331,6 +335,7 @@ function normalizeAppState(state, skillCatalog = [], userSkills = [], postsPage 
       ...(state.analysis ?? {}),
       createdAt: state.analysis?.created_at ?? null,
     },
+    analyses: state.analyses ?? base.analyses,
     market: state.market ?? [],
     portfolio: {
       ideal: state.portfolio?.ideal ?? [],
@@ -1418,7 +1423,19 @@ function JDInputScreen({ go, requireAuth, notifyUnavailable, onAnalyzed, setGlob
 }
 
 function AnalysisScreen({ go, data }) {
-  const analysis = data.analysis;
+  const analyses = data.analyses?.length ? data.analyses : data.analysis?.title ? [data.analysis] : [];
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState(analyses[0]?.id ?? null);
+  useEffect(() => {
+    if (!analyses.length) {
+      setSelectedAnalysisId(null);
+      return;
+    }
+    if (!analyses.some((item) => item.id === selectedAnalysisId)) {
+      setSelectedAnalysisId(analyses[0].id);
+    }
+  }, [analyses, selectedAnalysisId]);
+
+  const analysis = analyses.find((item) => item.id === selectedAnalysisId) ?? analyses[0] ?? EMPTY_DATA.analysis;
   const hasAnalysis = Boolean(analysis.title);
   const experiences = analysis.experiences ?? [];
   const counts = {
@@ -1456,7 +1473,7 @@ function AnalysisScreen({ go, data }) {
         <div>
           <div className="page-eyebrow">JD 분석 결과</div>
           <h1 className="page-title">{analysis.company ? `${analysis.company} · ` : ""}{analysis.title}</h1>
-          <p className="page-sub">분석 완료 · {analysis.createdAt ?? "저장된 분석"}</p>
+          <p className="page-sub">총 {analyses.length}개 분석 · 선택한 분석 {analysis.createdAt ?? "저장된 분석"}</p>
         </div>
         <div className="score-box">
           <div className="score">{analysis.score}%</div>
@@ -1470,6 +1487,26 @@ function AnalysisScreen({ go, data }) {
       </div>
 
       <div className="screen-stack">
+        <div className="card">
+          <div className="card-title card-title-spaced">분석 이력</div>
+          <div className="analysis-list">
+            {analyses.map((item) => (
+              <button
+                key={item.id ?? `${item.title}-${item.createdAt}`}
+                className={`analysis-list-item ${item.id === analysis.id ? "active" : ""}`}
+                onClick={() => setSelectedAnalysisId(item.id)}
+                type="button"
+              >
+                <div className="analysis-list-main">
+                  <strong>{item.company ? `${item.company} · ` : ""}{item.title}</strong>
+                  <span>{item.createdAt ?? "분석 날짜 없음"}</span>
+                </div>
+                <div className="analysis-list-score">{item.score}%</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="card">
           <div className="card-title card-title-spaced">JD 핵심 요구사항</div>
           <div className="req-grid">
