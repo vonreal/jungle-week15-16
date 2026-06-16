@@ -491,8 +491,8 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost })
       setPasswordError("현재 비밀번호와 새 비밀번호를 모두 입력해주세요.");
       return;
     }
-    if (newPassword.length < 4) {
-      setPasswordError("새 비밀번호는 4자 이상이어야 합니다.");
+    if (newPassword.length < 8) {
+      setPasswordError("새 비밀번호는 8자 이상이어야 합니다.");
       return;
     }
     if (newPassword !== passwordForm.confirm_password) {
@@ -659,7 +659,7 @@ function MyPageScreen({ go, data, currentUser, onProfileUpdated, onSelectPost })
                     id="password-new"
                     value={passwordForm.new_password}
                     onChange={(event) => updatePasswordForm("new_password", event.target.value)}
-                    placeholder="4자 이상"
+                    placeholder="8자 이상"
                   />
                 </div>
                 <div className="form-group">

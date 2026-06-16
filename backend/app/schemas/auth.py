@@ -22,7 +22,7 @@ class UserLogin(BaseModel):
 
 class PasswordChange(BaseModel):
     current_password: str
-    new_password: str = Field(min_length=4)
+    new_password: str = Field(min_length=8)
 
 
 class UserUpdate(BaseModel):
