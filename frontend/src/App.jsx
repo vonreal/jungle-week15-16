@@ -2106,7 +2106,7 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
   const analyses = data.analyses?.length ? data.analyses : data.analysis?.title ? [data.analysis] : [];
   const [selectedAnalysisId, setSelectedAnalysisId] = useState(null);
   const [selectedAnalysisIds, setSelectedAnalysisIds] = useState([]);
-  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isAnalysisDeleteMode, setIsAnalysisDeleteMode] = useState(false);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [isDeletingAnalysis, setIsDeletingAnalysis] = useState(false);
   const [showUnrelatedExperiences, setShowUnrelatedExperiences] = useState(false);
@@ -2162,6 +2162,10 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
   const toggleAllAnalyses = () => {
     setSelectedAnalysisIds(allSelected ? [] : allAnalysisIds);
   };
+  const exitAnalysisDeleteMode = () => {
+    setIsAnalysisDeleteMode(false);
+    setSelectedAnalysisIds([]);
+  };
   const reanalyze = async (target = analysis) => {
     if (!target?.id) return;
     setGlobalLoading?.({
@@ -2192,36 +2196,6 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
       setGlobalLoading?.(null);
     }
   };
-  const deleteAnalysis = async () => {
-    if (!deleteTarget?.id) return;
-    setIsDeletingAnalysis(true);
-    setGlobalLoading?.({
-      title: "분석 결과를 삭제하는 중입니다",
-      description: "분석 결과, 요구사항, 경험 분류 데이터를 정리하고 목록을 갱신합니다.",
-      steps: ["삭제 요청", "연결 데이터 정리", "목록 갱신"],
-      activeStep: 0,
-    });
-    try {
-      const deletedId = deleteTarget.id;
-      await jdApi.deleteAnalysis(deleteTarget.id);
-      setGlobalLoading?.({
-        title: "분석 목록을 갱신하는 중입니다",
-        description: "삭제된 결과를 화면에서 제거하고 최신 데이터를 불러옵니다.",
-        steps: ["삭제 요청", "연결 데이터 정리", "목록 갱신"],
-        activeStep: 2,
-      });
-      setDeleteTarget(null);
-      if (selectedAnalysisId === deletedId) {
-        setSelectedAnalysisId(null);
-      }
-      await onDeleted?.();
-    } catch (event) {
-      notifyUnavailable?.(event.message || "분석 결과 삭제에 실패했습니다.");
-    } finally {
-      setIsDeletingAnalysis(false);
-      setGlobalLoading?.(null);
-    }
-  };
   const bulkDeleteAnalyses = async () => {
     if (!selectedAnalysisIds.length) return;
     setIsDeletingAnalysis(true);
@@ -2242,6 +2216,7 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
       });
       setShowBulkDeleteModal(false);
       setSelectedAnalysisIds([]);
+      setIsAnalysisDeleteMode(false);
       if (selectedAnalysisId && deletedIds.includes(selectedAnalysisId)) {
         setSelectedAnalysisId(null);
       }
@@ -2286,13 +2261,27 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
             <h1 className="page-title">전체 분석 이력</h1>
             <p className="page-sub">분석 결과를 선택하면 상세 비교 화면으로 이동합니다</p>
           </div>
-          <button className="btn btn-primary btn-sm" onClick={() => go("jdinput")} type="button">
-            새 JD 분석
-            <Icon icon={ArrowRight} size={14} />
-          </button>
+          <div className="page-actions">
+            {isAnalysisDeleteMode ? (
+              <button className="btn btn-secondary btn-sm" onClick={exitAnalysisDeleteMode} type="button">
+                취소
+              </button>
+            ) : (
+              <>
+                <button className="btn btn-secondary btn-sm" onClick={() => setIsAnalysisDeleteMode(true)} type="button">
+                  삭제
+                </button>
+                <button className="btn btn-primary btn-sm" onClick={() => go("jdinput")} type="button">
+                  새 JD 분석
+                  <Icon icon={ArrowRight} size={14} />
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="card">
+          {isAnalysisDeleteMode && (
           <div className="analysis-bulk-bar">
             <label className="analysis-check-label">
               <input
@@ -2314,6 +2303,7 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
               </button>
             </div>
           </div>
+          )}
           <div className="analysis-list full">
             {analyses.map((item) => {
               const isSelected = selectedAnalysisIds.includes(item.id);
@@ -2322,6 +2312,7 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
                 key={item.id ?? `${item.title}-${item.createdAt}`}
                 className={`analysis-list-item ${isSelected ? "selected" : ""}`}
               >
+                {isAnalysisDeleteMode && (
                 <label className="analysis-check-label compact" aria-label="분석 결과 선택">
                   <input
                     type="checkbox"
@@ -2329,9 +2320,16 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
                     onChange={() => toggleAnalysisSelection(item.id)}
                   />
                 </label>
+                )}
                 <button
                   className="analysis-list-main analysis-list-open"
-                  onClick={() => setSelectedAnalysisId(item.id)}
+                  onClick={() => {
+                    if (isAnalysisDeleteMode) {
+                      toggleAnalysisSelection(item.id);
+                      return;
+                    }
+                    setSelectedAnalysisId(item.id);
+                  }}
                   type="button"
                 >
                   <strong>
@@ -2354,17 +2352,6 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
                     </button>
                   )}
                   <div className="analysis-list-score">{item.score}%</div>
-                  <button
-                    className="analysis-delete"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setDeleteTarget(item);
-                    }}
-                    type="button"
-                    aria-label="분석 결과 삭제"
-                  >
-                    <Icon icon={X} size={14} />
-                  </button>
                 </div>
               </div>
               );
@@ -2394,27 +2381,6 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
           </div>
         )}
 
-        {deleteTarget && (
-          <div className="modal-backdrop">
-            <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-analysis-title">
-              <div className="modal-icon danger">
-                <Icon icon={X} size={20} />
-              </div>
-              <h2 id="delete-analysis-title" className="modal-title">분석 결과를 삭제할까요?</h2>
-              <p className="modal-desc">
-                {deleteTarget.company ? `${deleteTarget.company} · ` : ""}{deleteTarget.title} 분석 결과와 경험 분류가 삭제됩니다.
-              </p>
-              <div className="modal-actions">
-                <button className="btn btn-secondary" onClick={() => setDeleteTarget(null)} disabled={isDeletingAnalysis} type="button">
-                  취소
-                </button>
-                <button className="btn btn-danger" onClick={deleteAnalysis} disabled={isDeletingAnalysis} type="button">
-                  {isDeletingAnalysis ? "삭제 중" : "삭제"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -2615,27 +2581,6 @@ function AnalysisScreen({ go, data, onDeleted, onReanalyzed, notifyUnavailable, 
         </div>
       </div>
 
-      {deleteTarget && (
-        <div className="modal-backdrop">
-          <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-analysis-title">
-            <div className="modal-icon danger">
-              <Icon icon={X} size={20} />
-            </div>
-            <h2 id="delete-analysis-title" className="modal-title">분석 결과를 삭제할까요?</h2>
-            <p className="modal-desc">
-              {deleteTarget.company ? `${deleteTarget.company} · ` : ""}{deleteTarget.title} 분석 결과와 경험 분류가 삭제됩니다.
-            </p>
-            <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setDeleteTarget(null)} disabled={isDeletingAnalysis} type="button">
-                취소
-              </button>
-              <button className="btn btn-danger" onClick={deleteAnalysis} disabled={isDeletingAnalysis} type="button">
-                {isDeletingAnalysis ? "삭제 중" : "삭제"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
