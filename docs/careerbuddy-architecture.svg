@@ -1,0 +1,191 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="920" viewBox="0 0 1440 920" role="img" aria-labelledby="title desc">
+  <title id="title">CareerBuddy Structure Architecture</title>
+  <desc id="desc">CareerBuddy frontend, backend, AI services, MCP crawler, RAG, PostgreSQL pgvector, and deployment structure.</desc>
+  <defs>
+    <marker id="arrow-blue" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#3b6ff5" />
+    </marker>
+    <marker id="arrow-purple" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#7c3aed" />
+    </marker>
+    <marker id="arrow-gray" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#64748b" />
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#1e293b" flood-opacity=".13" />
+    </filter>
+    <style>
+      .bg { fill: #f5f7fb; }
+      .zone { fill: #ffffff; stroke: #dbe3ef; stroke-width: 2; filter: url(#shadow); }
+      .zone-dashed { fill: #ffffff; stroke: #93c5fd; stroke-width: 2.4; stroke-dasharray: 10 8; filter: url(#shadow); }
+      .node { fill: #f8fafc; stroke: #d5deeb; stroke-width: 2; }
+      .node-blue { fill: #eff6ff; stroke: #9bbcff; stroke-width: 2; }
+      .node-purple { fill: #f5f3ff; stroke: #c4b5fd; stroke-width: 2; }
+      .node-green { fill: #ecfdf5; stroke: #86efac; stroke-width: 2; }
+      .node-yellow { fill: #fffbeb; stroke: #fcd34d; stroke-width: 2; }
+      .node-red { fill: #fff1f2; stroke: #fda4af; stroke-width: 2; }
+      .badge { fill: #e0ecff; stroke: #a8c5ff; stroke-width: 1.5; }
+      .badge-green { fill: #dcfce7; stroke: #86efac; stroke-width: 1.5; }
+      .badge-yellow { fill: #fef3c7; stroke: #facc15; stroke-width: 1.5; }
+      .title { font: 800 34px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .subtitle { font: 500 16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #64748b; }
+      .zone-title { font: 800 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .label { font: 700 17px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #111827; }
+      .small { font: 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #64748b; }
+      .tiny { font: 700 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #3b6ff5; }
+      .line-blue { stroke: #3b6ff5; stroke-width: 3; fill: none; marker-end: url(#arrow-blue); }
+      .line-purple { stroke: #7c3aed; stroke-width: 3; fill: none; marker-end: url(#arrow-purple); }
+      .line-gray { stroke: #64748b; stroke-width: 2.5; fill: none; marker-end: url(#arrow-gray); stroke-dasharray: 8 7; }
+      .plain-line { stroke: #cbd5e1; stroke-width: 2; fill: none; }
+      .mono { font: 700 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #475569; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1440" height="920" />
+
+  <text x="60" y="58" class="title">CareerBuddy 구조 설계</text>
+  <text x="60" y="86" class="subtitle">React + FastAPI + PostgreSQL/pgvector + LangChain RAG + MCP Crawler + LangGraph Agent</text>
+
+  <!-- Legend -->
+  <rect x="1060" y="34" width="320" height="72" rx="18" class="zone" />
+  <circle cx="1090" cy="58" r="8" fill="#3b6ff5" />
+  <text x="1108" y="63" class="small">동기 API 호출</text>
+  <circle cx="1090" cy="84" r="8" fill="#7c3aed" />
+  <text x="1108" y="89" class="small">AI/RAG 데이터 흐름</text>
+  <line x1="1240" y1="58" x2="1290" y2="58" class="line-gray" />
+  <text x="1300" y="63" class="small">외부 연동</text>
+  <rect x="1240" y="74" width="52" height="20" rx="10" class="badge-green" />
+  <text x="1250" y="89" class="tiny">구현</text>
+  <text x="1300" y="89" class="small">현재 반영</text>
+
+  <!-- User / Client -->
+  <rect x="60" y="150" width="230" height="230" rx="28" class="zone" />
+  <text x="90" y="190" class="zone-title">Client</text>
+  <rect x="92" y="220" width="166" height="86" rx="20" class="node-blue" />
+  <text x="128" y="258" class="label">Browser</text>
+  <text x="110" y="282" class="small">사용자 화면</text>
+  <rect x="92" y="322" width="166" height="32" rx="16" class="badge-green" />
+  <text x="123" y="343" class="tiny">로그인 사용자</text>
+
+  <!-- Frontend -->
+  <rect x="360" y="130" width="310" height="270" rx="30" class="zone" />
+  <text x="392" y="170" class="zone-title">Frontend Container</text>
+  <text x="392" y="194" class="subtitle">React / Vite</text>
+  <rect x="398" y="224" width="232" height="48" rx="16" class="node-blue" />
+  <text x="430" y="254" class="label">Auth / Dashboard</text>
+  <rect x="398" y="286" width="232" height="48" rx="16" class="node-blue" />
+  <text x="430" y="316" class="label">Board / My Page</text>
+  <rect x="398" y="348" width="232" height="48" rx="16" class="node-blue" />
+  <text x="430" y="378" class="label">JD / AI Result UI</text>
+
+  <!-- Backend zone -->
+  <rect x="760" y="130" width="420" height="540" rx="30" class="zone" />
+  <text x="792" y="170" class="zone-title">Backend Container</text>
+  <text x="792" y="194" class="subtitle">FastAPI / Alembic / JWT</text>
+
+  <rect x="800" y="226" width="155" height="72" rx="18" class="node" />
+  <text x="830" y="256" class="label">REST API</text>
+  <text x="824" y="280" class="small">auth, posts, stats</text>
+
+  <rect x="985" y="226" width="155" height="72" rx="18" class="node-purple" />
+  <text x="1018" y="256" class="label">JD Analyzer</text>
+  <text x="1006" y="280" class="small">LLM 비교 분석</text>
+
+  <rect x="800" y="326" width="155" height="72" rx="18" class="node-purple" />
+  <text x="820" y="356" class="label">RAG Service</text>
+  <text x="815" y="380" class="small">LangChain splitter</text>
+
+  <rect x="985" y="326" width="155" height="72" rx="18" class="node-purple" />
+  <text x="1000" y="356" class="label">Portfolio Agent</text>
+  <text x="1010" y="380" class="small">LangGraph plan</text>
+
+  <rect x="800" y="426" width="155" height="72" rx="18" class="node-green" />
+  <text x="817" y="456" class="label">Documents</text>
+  <text x="822" y="480" class="small">PDF/DOCX/TXT</text>
+
+  <rect x="985" y="426" width="155" height="72" rx="18" class="node-yellow" />
+  <text x="1022" y="456" class="label">MCP Client</text>
+  <text x="1005" y="480" class="small">stdio tool call</text>
+
+  <rect x="800" y="526" width="340" height="86" rx="20" class="node-blue" />
+  <text x="830" y="558" class="label">Business Logic</text>
+  <text x="830" y="584" class="small">게시판 CRUD · 댓글 · 스터디 신청 · 프로필 · 스탯</text>
+
+  <!-- MCP server -->
+  <rect x="1230" y="408" width="170" height="130" rx="24" class="zone-dashed" />
+  <text x="1252" y="445" class="zone-title">MCP Server</text>
+  <text x="1254" y="471" class="small">Python SDK</text>
+  <text x="1254" y="494" class="mono">fetch_job_posting</text>
+  <rect x="1260" y="508" width="112" height="24" rx="12" class="badge-green" />
+  <text x="1284" y="525" class="tiny">구현됨</text>
+
+  <!-- External services -->
+  <rect x="1230" y="170" width="170" height="90" rx="24" class="node-red" />
+  <text x="1260" y="207" class="label">OpenAI API</text>
+  <text x="1248" y="232" class="small">LLM + Embeddings</text>
+
+  <rect x="1230" y="290" width="170" height="84" rx="24" class="node" />
+  <text x="1256" y="324" class="label">Job Sites</text>
+  <text x="1249" y="349" class="small">Naver, Kakao, etc.</text>
+
+  <!-- Database -->
+  <rect x="390" y="560" width="310" height="250" rx="30" class="zone" />
+  <text x="422" y="600" class="zone-title">Database Container</text>
+  <text x="422" y="624" class="subtitle">PostgreSQL 16 + pgvector</text>
+  <rect x="428" y="660" width="234" height="48" rx="16" class="node-green" />
+  <text x="450" y="690" class="label">Domain Tables</text>
+  <text x="450" y="728" class="small">users · posts · skills · documents</text>
+  <text x="450" y="750" class="small">job_descriptions · analyses</text>
+  <rect x="428" y="770" width="234" height="48" rx="16" class="node-purple" />
+  <text x="450" y="801" class="label">document_embeddings</text>
+
+  <!-- Deployment -->
+  <rect x="60" y="470" width="230" height="250" rx="28" class="zone-dashed" />
+  <text x="90" y="510" class="zone-title">Deployment</text>
+  <text x="90" y="535" class="subtitle">AWS EC2</text>
+  <rect x="94" y="570" width="160" height="42" rx="15" class="node" />
+  <text x="126" y="598" class="label">Docker Compose</text>
+  <rect x="94" y="630" width="160" height="42" rx="15" class="node" />
+  <text x="129" y="658" class="label">GitHub Actions</text>
+  <rect x="112" y="690" width="124" height="24" rx="12" class="badge-yellow" />
+  <text x="132" y="707" class="tiny">배포 확장</text>
+
+  <!-- Connections -->
+  <path d="M290 265 C318 265 330 265 360 265" class="line-blue" />
+  <text x="302" y="250" class="small">HTTP</text>
+
+  <path d="M670 265 C710 265 720 265 760 265" class="line-blue" />
+  <text x="690" y="250" class="small">REST JSON</text>
+
+  <path d="M955 262 L985 262" class="plain-line" />
+  <path d="M1062 226 C1062 190 1160 190 1230 205" class="line-gray" />
+  <text x="1126" y="182" class="small">LLM 호출</text>
+
+  <path d="M955 362 L985 262" class="line-purple" />
+  <path d="M878 398 C850 485 720 608 700 682" class="line-purple" />
+  <text x="714" y="598" class="small">chunk 저장/검색</text>
+
+  <path d="M955 462 L985 362" class="line-purple" />
+  <path d="M1062 326 C1070 260 1160 230 1230 220" class="line-gray" />
+  <text x="1126" y="270" class="small">embedding</text>
+
+  <path d="M1140 462 C1170 462 1200 462 1230 462" class="line-purple" />
+  <path d="M1315 408 L1315 374" class="line-gray" />
+  <text x="1330" y="400" class="small">크롤링</text>
+
+  <path d="M800 568 C748 628 730 682 700 690" class="line-blue" />
+  <text x="720" y="660" class="small">CRUD</text>
+
+  <path d="M175 470 C230 410 305 380 360 350" class="line-gray" />
+  <text x="205" y="426" class="small">운영 배포</text>
+
+  <path d="M515 400 C520 465 525 515 535 560" class="line-blue" />
+  <text x="540" y="495" class="small">API 결과 표시</text>
+
+  <!-- Bottom notes -->
+  <rect x="760" y="710" width="620" height="120" rx="26" class="zone" />
+  <text x="792" y="750" class="zone-title">현재 AI 처리 기준</text>
+  <text x="792" y="782" class="small">1. 링크 입력: FastAPI가 MCP Client로 로컬 MCP Crawler 서버를 stdio 실행해 본문을 가져옵니다.</text>
+  <text x="792" y="806" class="small">2. 텍스트/문서: LangChain으로 청크화 후 OpenAI Embeddings 또는 fallback vector를 pgvector에 저장합니다.</text>
+  <text x="792" y="830" class="small">3. 분석/추천: JD Analyzer와 Portfolio Agent가 사용자 스탯, 경험, RAG 근거를 함께 사용합니다.</text>
+</svg>
