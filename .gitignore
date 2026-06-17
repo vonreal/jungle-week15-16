@@ -17,5 +17,7 @@ build/
 coverage/
 *.log
 
-# Workflow drafts are kept local until CI/CD is ready to publish.
-.github/
+# Publish GitHub Actions workflows, while keeping any other local GitHub scratch files ignored.
+.github/*
+!.github/workflows/
+!.github/workflows/*.yml
