@@ -13,6 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Configure SSH
         run: |
+          set -x
           mkdir -p ~/.ssh
           echo "${{ secrets.AWS_EC2_SSH_KEY }}" > ~/.ssh/careerbuddy.pem
           chmod 600 ~/.ssh/careerbuddy.pem
@@ -22,16 +23,3 @@ jobs:
           tar --exclude=.git --exclude=node_modules --exclude=.venv -czf /tmp/careerbuddy.tar.gz .
           ssh -i ~/.ssh/careerbuddy.pem "${{ secrets.AWS_EC2_USER }}@${{ secrets.AWS_EC2_HOST }}" "sudo mkdir -p /opt/careerbuddy && sudo chown ${{ secrets.AWS_EC2_USER }} /opt/careerbuddy"
           scp -i ~/.ssh/careerbuddy.pem /tmp/careerbuddy.tar.gz "${{ secrets.AWS_EC2_USER }}@${{ secrets.AWS_EC2_HOST }}:/tmp/careerbuddy.tar.gz"
-      - name: Restart stack
-        run: |
-          ssh -i ~/.ssh/careerbuddy.pem "${{ secrets.AWS_EC2_USER }}@${{ secrets.AWS_EC2_HOST }}" <<'REMOTE'
-          set -euo pipefail
-          cd /opt/careerbuddy
-          tar -xzf /tmp/careerbuddy.tar.gz -C /opt/careerbuddy
-          if [ ! -f .env ]; then
-            echo "Missing /opt/careerbuddy/.env. Create it on the EC2 instance before deploying." >&2
-            exit 1
-          fi
-          docker compose up -d --build
-          docker compose exec -T backend alembic upgrade head
-          REMOTE
